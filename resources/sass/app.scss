@@ -1,0 +1,231 @@
+@tailwind base;
+
+$primary: #176b87;
+$success: #159a83;
+
+@import 'bootstrap/scss/bootstrap';
+
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    --hospital-ink: #203047;
+    --hospital-muted: #78879a;
+    --hospital-border: #e6edf3;
+    --hospital-surface: #ffffff;
+    --hospital-canvas: #f5f8fb;
+}
+
+body {
+    background: var(--hospital-canvas);
+    color: var(--hospital-ink);
+}
+
+.card {
+    border-color: var(--hospital-border);
+    border-radius: 0.85rem;
+    box-shadow: 0 5px 20px rgb(34 56 84 / 4%);
+}
+
+.card-header,
+.card-footer {
+    border-color: #edf1f5;
+}
+
+.form-control,
+.form-select,
+.input-group-text {
+    border-color: #dce5ed;
+    border-radius: 0.55rem;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #75b7c8;
+    box-shadow: 0 0 0 0.2rem rgb(23 107 135 / 12%);
+}
+
+.form-label {
+    color: #536478;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.btn {
+    border-radius: 0.55rem;
+    font-weight: 600;
+}
+
+.table {
+    --bs-table-color: #536478;
+}
+
+.table > :not(caption) > * > * {
+    border-color: #edf1f5;
+}
+
+.clinical-page {
+    color: var(--hospital-ink);
+    padding: 1.1rem 0 2rem;
+}
+
+.clinical-page-heading {
+    align-items: end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: space-between;
+    margin-bottom: 1.35rem;
+}
+
+.clinical-eyebrow {
+    color: #178b98;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    margin-bottom: 0.3rem;
+    text-transform: uppercase;
+}
+
+.clinical-page-title {
+    font-size: clamp(1.5rem, 3vw, 1.9rem);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    margin-bottom: 0.3rem;
+}
+
+.app-page-header {
+    align-items: end;
+    background:
+        radial-gradient(ellipse at 92% 10%, rgb(22 143 148 / 10%), transparent 34%),
+        linear-gradient(110deg, #fff 0%, #f5fafb 100%);
+    border: 1px solid var(--hospital-border);
+    border-left: 4px solid #168b89;
+    border-radius: 0.9rem;
+    box-shadow: 0 5px 20px rgb(34 56 84 / 4%);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: space-between;
+    margin-bottom: 1.35rem;
+    padding: 1.15rem 1.35rem;
+}
+
+.app-page-header-content {
+    min-width: 0;
+}
+
+.app-page-eyebrow {
+    color: #178b98;
+    font-size: 0.67rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    margin-bottom: 0.3rem;
+    text-transform: uppercase;
+}
+
+.app-page-title {
+    color: var(--hospital-ink);
+    font-size: clamp(1.45rem, 2.8vw, 1.85rem);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.2;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.app-page-description {
+    color: var(--hospital-muted);
+    font-size: 0.84rem;
+    margin: 0.35rem 0 0;
+}
+
+.app-page-header-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.app-page-form-header {
+    background:
+        radial-gradient(ellipse at 92% 10%, rgb(22 143 148 / 10%), transparent 34%),
+        linear-gradient(110deg, #fff 0%, #f5fafb 100%);
+    border-bottom-color: var(--hospital-border);
+    border-left: 4px solid #168b89;
+    gap: 1rem;
+}
+
+.app-page-form-title {
+    color: var(--hospital-ink);
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.clinical-page-subtitle {
+    color: var(--hospital-muted);
+    margin: 0;
+}
+
+.clinical-panel .card-header {
+    align-items: center;
+    background: var(--hospital-surface);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: space-between;
+    padding: 1rem 1.2rem;
+}
+
+.clinical-panel .card-header h2,
+.clinical-panel .card-header h3,
+.clinical-panel .card-header h4,
+.clinical-panel .card-header h5 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.clinical-panel .table {
+    font-size: 0.82rem;
+    margin-bottom: 0;
+}
+
+.clinical-panel .table > :not(caption) > * > * {
+    padding: 0.85rem 1rem;
+}
+
+.clinical-form-card .card-header {
+    background: linear-gradient(110deg, #176b87, #168f94);
+    border-bottom: 0;
+    color: #fff;
+    padding: 1.1rem 1.3rem;
+}
+
+.clinical-form-card .card-body {
+    padding: clamp(1rem, 3vw, 1.6rem);
+}
+
+@media (max-width: 575.98px) {
+    main.p-4 {
+        padding: 1rem !important;
+    }
+
+    .clinical-page {
+        padding-top: 0.5rem;
+    }
+
+    .app-page-header {
+        align-items: flex-start;
+        padding: 1rem;
+    }
+
+    .app-page-header-actions {
+        width: 100%;
+    }
+
+    .clinical-panel .card-header {
+        padding: 0.9rem 1rem;
+    }
+}
