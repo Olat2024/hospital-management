@@ -4,8 +4,13 @@ set -e
 php artisan config:clear || true
 php artisan route:clear || true
 
+echo "=== Render env check ==="
+echo "DATABASE_URL raw: [${DATABASE_URL}]"
+env | grep -i database || echo "No DATABASE vars in env"
+echo "=== end env check ==="
+
 if [ -z "$DATABASE_URL" ]; then
-  echo "ERROR: DATABASE_URL is empty — php-fpm is still clearing it!"
+  echo "ERROR: DATABASE_URL is empty - php-fpm is still clearing it!"
   exit 1
 fi
 
