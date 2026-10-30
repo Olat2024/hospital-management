@@ -3,31 +3,41 @@ set -e
 
 : "${APP_KEY:?APP_KEY must be configured in the hosting environment}"
 : "${APP_URL:?APP_URL must be configured in the hosting environment}"
+: "${DB_HOST:?DB_HOST must be configured}"
+: "${DB_DATABASE:?DB_DATABASE must be configured}"
+: "${DB_USERNAME:?DB_USERNAME must be configured}"
+: "${DB_PASSWORD:?DB_PASSWORD must be configured}"
 
-export APP_ENV=production
-export APP_DEBUG=false
-export LOG_CHANNEL=stderr
-export DB_CONNECTION="${DB_CONNECTION:-pgsql}"
-export DB_PORT="${DB_PORT:-5432}"
-export SESSION_DRIVER="${SESSION_DRIVER:-database}"
-export CACHE_STORE="${CACHE_STORE:-file}"
+cd /var/www/app
 
-if [ -z "${DB_URL:-}" ]; then
-    : "${DB_HOST:?Set DB_URL or configure DB_HOST, DB_DATABASE, DB_USERNAME, and DB_PASSWORD}"
-    : "${DB_DATABASE:?Set DB_URL or configure DB_HOST, DB_DATABASE, DB_USERNAME, and DB_PASSWORD}"
-    : "${DB_USERNAME:?Set DB_URL or configure DB_HOST, DB_DATABASE, DB_USERNAME, and DB_PASSWORD}"
-    : "${DB_PASSWORD:?Set DB_URL or configure DB_HOST, DB_DATABASE, DB_USERNAME, and DB_PASSWORD}"
-fi
+cat > /var/www/app/.env <<EOF
+APP_NAME=Laravel
+APP_ENV=production
+APP_KEY=${APP_KEY}
+APP_DEBUG=false
+APP_URL=${APP_URL}
+LOG_CHANNEL=stderr
+DB_CONNECTION=pgsql
+DB_HOST=${DB_HOST}
+DB_PORT=${DB_PORT:-5432}
+DB_DATABASE=${DB_DATABASE}
+DB_USERNAME=${DB_USERNAME}
+DB_PASSWORD=${DB_PASSWORD}
+SESSION_DRIVER=database
+CACHE_STORE=file
+EOF
+
+echo "=== .env written ==="
+grep -E "DB_HOST|DB_DATABASE" /var/www/app/.env
 
 php artisan config:clear
 php artisan route:clear
 
+echo "=== Composer install ==="
+composer install --no-dev --working-dir=/var/www/app
+
 echo "=== Running migrations ==="
 php artisan migrate --force
-
-echo "=== Seeding hospital and permissions ==="
-php artisan db:seed --class=HospitalSeeder --force
-php artisan db:seed --class=PermissionSeeder --force
 
 echo "=== Creating super admin ==="
 php artisan db:seed --class=SuperAdminSeeder --force
