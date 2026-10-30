@@ -16,4 +16,7 @@ ENV COMPOSER_ALLOW_SUPERUSER 1
 
 RUN echo "clear_env = no" >> /usr/local/etc/php-fpm.d/www.conf
 
+RUN cp /var/www/html/conf/nginx/nginx-site.conf /etc/nginx/sites-available/default.conf && \
+    ln -sf /etc/nginx/sites-available/default.conf /etc/nginx/sites-enabled/default.conf
+
 CMD ["/start.sh"]
