@@ -39,7 +39,8 @@ watch(() => page.url, () => {
 
 // Helper function to check roles
 const hasRole = (role) => userRoles.value.includes(role);
-const hasPermission = (permission) => userPermissions.value.includes(permission) || hasRole('Admin');
+const isAdministrator = computed(() => hasRole('Admin') || hasRole('super-admin'));
+const hasPermission = (permission) => userPermissions.value.includes(permission) || isAdministrator.value;
 
 const initials = computed(() => {
     const name = user.value?.name || '?';
@@ -137,7 +138,7 @@ const initials = computed(() => {
                 </li>
 
                 <!-- Administration -->
-                <li class="nav-item" v-if="hasRole('Admin')">
+                <li class="nav-item" v-if="isAdministrator">
                     <div class="sidebar-section-label text-uppercase small text-white-50 px-2 mt-3 mb-1">Administration</div>
                 </li>
                 <li class="nav-item" v-if="hasPermission('doctors.manage')">

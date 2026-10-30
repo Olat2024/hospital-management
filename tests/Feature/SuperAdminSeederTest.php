@@ -7,6 +7,8 @@ use Database\Seeders\PermissionSeeder;
 use Database\Seeders\SuperAdminSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class SuperAdminSeederTest extends TestCase
@@ -35,6 +37,8 @@ class SuperAdminSeederTest extends TestCase
         $this->assertTrue($user->hasRole('super-admin'));
         $this->assertTrue($user->can('roles.manage'));
         $this->assertTrue($user->can('admissions.manage'));
+        $this->assertTrue(Role::findByName('super-admin')->hasPermissionTo('roles.manage'));
+        $this->assertTrue(Role::findByName('super-admin')->hasPermissionTo('admissions.manage'));
     }
 
     public function test_super_admin_seeder_requires_a_password_only_to_create_a_new_user(): void
@@ -49,5 +53,21 @@ class SuperAdminSeederTest extends TestCase
         $this->expectExceptionMessage('SUPER_ADMIN_PASSWORD must be configured');
 
         $this->seed(SuperAdminSeeder::class);
+    }
+
+    public function test_super_admin_role_can_access_admin_pages_without_the_admin_role(): void
+    {
+        $this->seed(PermissionSeeder::class);
+
+        $superAdminRole = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
+        $user = User::factory()->create();
+        $user->assignRole($superAdminRole);
+
+        $this->actingAs($user)
+            ->get('/settings/roles')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('auth.roles', ['super-admin'])
+                ->where('auth.permissions', []));
     }
 }
