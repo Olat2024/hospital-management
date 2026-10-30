@@ -1,33 +1,35 @@
 #!/usr/bin/env bash
 set -e
 
-php artisan config:clear || true
-php artisan route:clear || true
+: "${APP_KEY:?APP_KEY must be configured in the hosting environment}"
+: "${APP_URL:?APP_URL must be configured in the hosting environment}"
 
-cat > /var/www/html/.env <<EOF
-APP_NAME=Laravel
-APP_ENV=production
-APP_KEY=${APP_KEY}
-APP_DEBUG=false
-APP_URL=${APP_URL}
-LOG_CHANNEL=stderr
-DB_CONNECTION=pgsql
-DB_HOST=dpg-dbhkt2vlk1mc73d16c5g-a
-DB_PORT=5432
-DB_DATABASE=hospital_db_4vim
-DB_USERNAME=hospital_db_4vim_user
-DB_PASSWORD=eGj0QscoeIJOz7FHX2AcBbJG0zLNN80K
-SESSION_DRIVER=database
-CACHE_STORE=file
-EOF
+export APP_ENV=production
+export APP_DEBUG=false
+export LOG_CHANNEL=stderr
+export DB_CONNECTION="${DB_CONNECTION:-pgsql}"
+export DB_PORT="${DB_PORT:-5432}"
+export SESSION_DRIVER="${SESSION_DRIVER:-database}"
+export CACHE_STORE="${CACHE_STORE:-file}"
 
-echo "=== .env written ==="
-grep DB_HOST /var/www/html/.env
+if [ -z "${DB_URL:-}" ]; then
+    : "${DB_HOST:?Set DB_URL or configure DB_HOST, DB_DATABASE, DB_USERNAME, and DB_PASSWORD}"
+    : "${DB_DATABASE:?Set DB_URL or configure DB_HOST, DB_DATABASE, DB_USERNAME, and DB_PASSWORD}"
+    : "${DB_USERNAME:?Set DB_URL or configure DB_HOST, DB_DATABASE, DB_USERNAME, and DB_PASSWORD}"
+    : "${DB_PASSWORD:?Set DB_URL or configure DB_HOST, DB_DATABASE, DB_USERNAME, and DB_PASSWORD}"
+fi
+
+php artisan config:clear
+php artisan route:clear
 
 composer install --no-dev --working-dir=/var/www/html
 
 echo "=== Running migrations ==="
 php artisan migrate --force
+
+echo "=== Seeding hospital and permissions ==="
+php artisan db:seed --class=HospitalSeeder --force
+php artisan db:seed --class=PermissionSeeder --force
 
 echo "=== Creating super admin ==="
 php artisan db:seed --class=SuperAdminSeeder --force
