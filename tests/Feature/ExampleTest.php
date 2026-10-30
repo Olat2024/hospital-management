@@ -17,7 +17,7 @@ class ExampleTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Welcome')
-                ->where('hospitalName', 'CarePoint Hospital')
+                ->where('hospitalName', 'Siloam Grace Clinic & Maternity Home')
                 ->where('canLogin', true)
                 ->where('canRegister', true)
                 ->has('tagline')

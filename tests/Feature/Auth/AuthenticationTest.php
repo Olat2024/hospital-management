@@ -18,7 +18,7 @@ class AuthenticationTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Auth/Login')
-                ->where('hospitalName', 'CarePoint Hospital')
+                ->where('hospitalName', 'Siloam Grace Clinic & Maternity Home')
                 ->where('canResetPassword', true)
                 ->has('canRegister')
                 ->has('logoUrl'));

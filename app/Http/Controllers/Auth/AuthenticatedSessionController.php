@@ -26,7 +26,7 @@ class AuthenticatedSessionController extends Controller
             'canResetPassword' => Route::has('password.request'),
             'canRegister' => Route::has('register'),
             'status' => session('status'),
-            'hospitalName' => $setup?->name ?: ($hospital?->name ?: 'CarePoint Hospital'),
+            'hospitalName' => $setup?->name ?: ($hospital?->name ?: 'Siloam Grace Clinic & Maternity Home'),
             'logoUrl' => $setup?->logo_url ?? $hospital?->logo_url,
         ]);
     }

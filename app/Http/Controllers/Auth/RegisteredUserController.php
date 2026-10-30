@@ -26,7 +26,7 @@ class RegisteredUserController extends Controller
         $setup = $hospital?->setup;
 
         return Inertia::render('Auth/Register', [
-            'hospitalName' => $setup?->name ?: ($hospital?->name ?: 'CarePoint Hospital'),
+            'hospitalName' => $setup?->name ?: ($hospital?->name ?: 'Siloam Grace Clinic & Maternity Home'),
             'logoUrl' => $setup?->logo_url ?? $hospital?->logo_url,
         ]);
     }

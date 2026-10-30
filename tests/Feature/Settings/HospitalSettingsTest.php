@@ -46,7 +46,7 @@ class HospitalSettingsTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Settings/Hospital')
                 ->has('hospital')
-                ->where('hospital.name', 'General Hospital'));
+                ->where('hospital.name', 'Siloam Grace Clinic & Maternity Home'));
     }
 
     public function test_hospital_favicon_is_shared_and_used_in_the_application_head(): void
@@ -123,7 +123,7 @@ class HospitalSettingsTest extends TestCase
         $this->actingAs($this->admin())
             ->post('/settings/hospital-setup', [
                 '_method' => 'PUT',
-                'name' => 'General Hospital',
+                'name' => 'Siloam Grace Clinic & Maternity Home',
                 'logo' => UploadedFile::fake()->image('logo.png'),
                 'favicon' => UploadedFile::fake()->image('favicon.png'),
             ])

@@ -39,9 +39,17 @@ class Hospital extends Model
 
     public static function default(): self
     {
-        // Adjust ordering to your actual "primary" hospital logic
-        return static::query()->where('is_active', true)->first()
-            ?? static::query()->firstOrFail();
+        $hospital = static::query()->where('is_active', true)->first()
+            ?? static::query()->first();
+
+        if ($hospital) {
+            return $hospital;
+        }
+
+        return static::query()->create([
+            'name' => 'Siloam Grace Clinic & Maternity Home',
+            'is_active' => true,
+        ]);
     }
 
     public function patients(): HasMany

@@ -6,7 +6,7 @@ defineProps({
     canRegister: Boolean,
     hospitalName: {
         type: String,
-        default: 'CarePoint Hospital',
+        default: 'Siloam Grace Clinic & Maternity Home',
     },
     tagline: {
         type: String,

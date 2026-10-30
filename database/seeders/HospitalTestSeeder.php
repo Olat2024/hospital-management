@@ -16,7 +16,7 @@ class HospitalTestSeeder extends Seeder
 
         // A hospital for patients and appointments to belong to.
         Hospital::firstOrCreate(
-            ['name' => 'General Hospital'],
+            ['name' => 'Siloam Grace Clinic & Maternity Home'],
             ['address' => '1 Hospital Road, Ijebu Ode, Ogun State', 'is_active' => true]
         );
 

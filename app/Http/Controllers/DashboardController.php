@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Appointment;
@@ -8,9 +9,12 @@ use App\Models\Patient;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
-class DashboardController extends Controller {
-    public function index(Request $request) {
+class DashboardController extends Controller
+{
+    public function index(Request $request)
+    {
         $user = $request->user();
+        $hospital = Hospital::default();
 
         // If the logged-in user is a Doctor, fetch their specific schedule
         if ($user->hasRole('Doctor')) {
@@ -33,7 +37,7 @@ class DashboardController extends Controller {
         }
 
         // Default overview for Admins and Receptionists
-        $hospitalId = Hospital::default()->id;
+        $hospitalId = $hospital->id;
 
         return Inertia::render('Dashboard/Staff', [
             'stats' => [
@@ -50,7 +54,7 @@ class DashboardController extends Controller {
                 ->whereDate('scheduled_at', today())
                 ->orderBy('scheduled_at')
                 ->take(5)
-                ->get()
+                ->get(),
         ]);
     }
 }

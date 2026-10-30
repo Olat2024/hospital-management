@@ -27,7 +27,7 @@ Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
-        'hospitalName' => $setup?->name ?: ($hospital?->name ?: 'CarePoint Hospital'),
+        'hospitalName' => $setup?->name ?: ($hospital?->name ?: 'Siloam Grace Clinic & Maternity Home'),
         'tagline' => $setup?->tagline ?: ($hospital?->tagline ?: 'Compassionate care. Connected teams.'),
         'logoUrl' => $setup?->logo_url ?? $hospital?->logo_url,
     ]);

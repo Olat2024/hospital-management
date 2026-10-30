@@ -4,7 +4,7 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 defineProps({
     hospitalName: {
         type: String,
-        default: 'CarePoint Hospital',
+        default: 'Siloam Grace Clinic & Maternity Home',
     },
     logoUrl: {
         type: String,

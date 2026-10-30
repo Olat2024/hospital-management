@@ -7,7 +7,7 @@ defineProps({
     status: String,
     hospitalName: {
         type: String,
-        default: 'CarePoint Hospital',
+        default: 'Siloam Grace Clinic & Maternity Home',
     },
     logoUrl: {
         type: String,
