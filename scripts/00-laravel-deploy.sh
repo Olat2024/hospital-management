@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -e
 
-cd /var/www/app
+cd /var/www/html
 
 php artisan config:clear || true
 php artisan route:clear || true
 
-cat > /var/www/app/.env <<EOF
+cat > /var/www/html/.env <<EOF
 APP_NAME=Laravel
 APP_ENV=production
 APP_KEY=base64:/CHz4rN4SNWx0oc/EwStxGPL7N533j1uaX3L0dExkqY=
@@ -24,9 +24,9 @@ CACHE_STORE=file
 EOF
 
 echo "=== .env written ==="
-grep DB_HOST /var/www/app/.env
+grep DB_HOST /var/www/html/.env
 
-composer install --no-dev --working-dir=/var/www/app
+composer install --no-dev --working-dir=/var/www/html
 
 echo "=== Running migrations ==="
 php artisan migrate --force
