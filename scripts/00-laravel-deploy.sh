@@ -19,8 +19,6 @@ if [ -z "${DB_URL:-}" ]; then
     : "${DB_PASSWORD:?Set DB_URL or configure DB_HOST, DB_DATABASE, DB_USERNAME, and DB_PASSWORD}"
 fi
 
-composer install --no-dev --working-dir=/var/www/html
-
 php artisan config:clear
 php artisan route:clear
 
