@@ -11,6 +11,8 @@ class Patient extends Model
 {
     protected $fillable = [
         'hospital_id',
+        'family_card_id',
+        'family_relationship',
         'mrn',
         'first_name',
         'last_name',
@@ -45,6 +47,11 @@ class Patient extends Model
         return $this->belongsTo(Hospital::class);
     }
 
+    public function familyCard(): BelongsTo
+    {
+        return $this->belongsTo(FamilyCard::class);
+    }
+
     public function appointments(): HasMany
     {
         return $this->hasMany(Appointment::class);
@@ -68,5 +75,15 @@ class Patient extends Model
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    public function admissions(): HasMany
+    {
+        return $this->hasMany(Admission::class)->latest('admitted_at');
+    }
+
+    public function referrals(): HasMany
+    {
+        return $this->hasMany(Referral::class)->latest('referred_at');
     }
 }

@@ -147,6 +147,53 @@ class RoleManagementTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Settings/Roles')
                 ->has('roles')
+                ->where('roles', fn ($roles) => collect($roles)->pluck('name')->all() === [
+                    'Admin',
+                    'Doctor',
+                    'Lab Technician',
+                    'Nurse',
+                    'Pharmacy',
+                    'Receptionist',
+                ])
                 ->where('roles.0.name', 'Admin'));
+    }
+
+    public function test_patient_care_permissions_are_listed_and_granted_to_default_roles(): void
+    {
+        $this->actingAs($this->admin())
+            ->get('/settings/roles')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('permissionGroups', fn ($groups) => $groups->contains(
+                    fn ($group) => $group['group'] === 'family-cards'
+                        && collect($group['permissions'])->contains('name', 'family-cards.manage')
+                ) && $groups->contains(
+                    fn ($group) => $group['group'] === 'referrals'
+                        && collect($group['permissions'])->contains('name', 'referrals.create')
+                ) && $groups->contains(
+                    fn ($group) => $group['group'] === 'admissions'
+                        && collect($group['permissions'])->contains('name', 'admissions.view')
+                        && collect($group['permissions'])->contains('name', 'admissions.manage')
+                )));
+
+        $this->assertTrue(Role::findByName('Receptionist')->hasPermissionTo('family-cards.manage'));
+        $this->assertTrue(Role::findByName('Doctor')->hasPermissionTo('referrals.create'));
+        $this->assertTrue(Role::findByName('Doctor')->hasPermissionTo('admissions.manage'));
+        $this->assertTrue(Role::findByName('Nurse')->hasPermissionTo('admissions.manage'));
+    }
+
+    public function test_permission_seeder_adds_new_permissions_to_preexisting_default_roles(): void
+    {
+        $doctor = Role::findByName('Doctor');
+        $doctor->syncPermissions(['patients.view']);
+        $receptionist = Role::findByName('Receptionist');
+        $receptionist->syncPermissions(['patients.view']);
+
+        $this->seed(PermissionSeeder::class);
+
+        $this->assertTrue($doctor->fresh()->hasPermissionTo('referrals.create'));
+        $this->assertTrue($doctor->fresh()->hasPermissionTo('admissions.manage'));
+        $this->assertTrue($receptionist->fresh()->hasPermissionTo('family-cards.manage'));
+        $this->assertTrue($receptionist->fresh()->hasPermissionTo('admissions.manage'));
     }
 }

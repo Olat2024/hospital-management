@@ -94,6 +94,8 @@ class PatientController extends Controller
 
     public function show(Request $request, Patient $patient)
     {
+        abort_unless($patient->hospital_id === Hospital::default()->id, 404);
+
         $canViewAppointments = $request->user()->can('appointments.view');
         $canViewMedicalRecords = $request->user()->can('medical-records.view');
         $canViewVitals = $request->user()->can('nursing.view');
@@ -106,8 +108,16 @@ class PatientController extends Controller
 
         if ($canViewMedicalRecords) {
             $relations['medicalRecords.doctor'] = fn ($query) => $query->orderByDesc('created_at');
+            $relations['referrals'] = fn ($query) => $query->orderByDesc('referred_at')->with('doctor');
         }
 
+        if ($request->user()->can('admissions.view')) {
+            $relations['admissions'] = fn ($query) => $query
+                ->orderByDesc('admitted_at')
+                ->with(['admittedBy:id,name', 'dischargedBy:id,name']);
+        }
+
+        $relations['familyCard.patients'] = fn ($query) => $query->orderBy('last_name')->orderBy('first_name');
         if ($canViewVitals) {
             $relations['vitalSigns'] = fn ($query) => $query
                 ->orderByDesc('recorded_at')
@@ -124,6 +134,10 @@ class PatientController extends Controller
                 'viewVitals' => $canViewVitals,
                 'manageVitals' => $request->user()->can('nursing.manage'),
                 'addNote' => $request->user()->can('medical-records.create'),
+                'addReferral' => $request->user()->can('referrals.create'),
+                'manageFamilyCard' => $request->user()->can('family-cards.manage'),
+                'viewAdmissions' => $request->user()->can('admissions.view'),
+                'manageAdmissions' => $request->user()->can('admissions.manage'),
                 'bookAppointment' => $request->user()->can('appointments.create'),
             ],
         ]);

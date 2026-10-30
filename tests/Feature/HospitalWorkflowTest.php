@@ -16,9 +16,13 @@ class HospitalWorkflowTest extends TestCase
     use RefreshDatabase;
 
     protected Hospital $hospital;
+
     protected User $admin;
+
     protected User $doctorUser;
+
     protected User $receptionist;
+
     protected Doctor $doctor;
 
     protected function setUp(): void
@@ -113,6 +117,135 @@ class HospitalWorkflowTest extends TestCase
             ->get(route('patients.show', $patient))
             ->assertOk()
             ->assertInertia(fn ($page) => $page->where('can.addNote', false));
+    }
+
+    public function test_doctor_can_refer_a_patient_to_another_hospital_and_see_the_referral_in_the_chart(): void
+    {
+        $patient = $this->makePatient();
+
+        $this->actingAs($this->doctorUser)
+            ->post(route('patients.referrals.store', $patient), [
+                'referred_to' => 'Regional Specialist Hospital',
+                'reason' => 'Needs specialist review',
+                'notes' => 'Bring previous investigation results.',
+                'referred_at' => now()->toDateTimeString(),
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('referrals', [
+            'patient_id' => $patient->id,
+            'doctor_id' => $this->doctor->id,
+            'referred_to' => 'Regional Specialist Hospital',
+        ]);
+
+        $this->actingAs($this->doctorUser)
+            ->get(route('patients.show', $patient))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('patient.referrals', 1)
+                ->where('patient.referrals.0.referred_to', 'Regional Specialist Hospital'));
+    }
+
+    public function test_patient_can_be_added_to_a_shared_family_card(): void
+    {
+        $patient = $this->makePatient();
+        $relative = $this->makePatient([
+            'mrn' => 'MRN-'.now()->format('ymd').'-00002',
+            'first_name' => 'Bisi',
+        ]);
+
+        $this->actingAs($this->receptionist)
+            ->post(route('patients.family-card.store', $patient), [
+                'family_name' => 'Ogunleye',
+                'contact_name' => 'Adebayo Ogunleye',
+                'phone' => '08033334444',
+                'address' => '1 Hospital Road',
+                'relationship' => 'Parent',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $familyCard = $patient->fresh()->familyCard;
+        $this->assertNotNull($familyCard);
+        $this->assertNotEmpty($familyCard->card_number);
+
+        $this->actingAs($this->receptionist)
+            ->post(route('patients.family-card.store', $relative), [
+                'family_card_number' => $familyCard->card_number,
+                'relationship' => 'Child',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->actingAs($this->doctorUser)
+            ->get(route('patients.show', $patient))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('patient.family_card.card_number', $familyCard->card_number)
+                ->has('patient.family_card.patients', 2));
+    }
+
+    public function test_admission_can_be_started_and_discharged_from_patient_chart(): void
+    {
+        $patient = $this->makePatient();
+        $admittedAt = now()->subHour()->toDateTimeString();
+
+        $this->actingAs($this->doctorUser)
+            ->post(route('patients.admissions.store', $patient), [
+                'reason' => 'Requires inpatient observation',
+                'notes' => 'Monitor temperature overnight.',
+                'admitted_at' => $admittedAt,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $admission = $patient->admissions()->firstOrFail();
+        $this->assertSame('admitted', $admission->status);
+
+        $this->actingAs($this->doctorUser)
+            ->post(route('admissions.discharge', $admission), [
+                'discharge_notes' => 'Stable and discharged home.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertSame('discharged', $admission->fresh()->status);
+        $this->assertNotNull($admission->fresh()->discharged_at);
+
+        $this->actingAs($this->doctorUser)
+            ->get(route('patients.show', $patient))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('patient.admissions', 1)
+                ->where('patient.admissions.0.status', 'discharged'));
+    }
+
+    public function test_patient_chart_and_prescription_creation_are_scoped_to_the_hospital(): void
+    {
+        $otherHospital = Hospital::create(['name' => 'Another Hospital']);
+        $otherPatient = $this->makePatient([
+            'hospital_id' => $otherHospital->id,
+            'mrn' => 'MRN-OTHER-HOSPITAL-0001',
+        ]);
+
+        $this->actingAs($this->doctorUser)
+            ->get(route('patients.show', $otherPatient))
+            ->assertNotFound();
+
+        $this->actingAs($this->doctorUser)
+            ->from(route('patients.index'))
+            ->post(route('medical-records.store'), [
+                'patient_id' => $otherPatient->id,
+                'diagnosis' => 'Out-of-hospital record',
+                'prescription' => 'Medicine',
+            ])
+            ->assertSessionHasErrors('patient_id');
+
+        $this->assertDatabaseMissing('medical_records', [
+            'patient_id' => $otherPatient->id,
+            'diagnosis' => 'Out-of-hospital record',
+        ]);
     }
 
     public function test_patient_registration_generates_sequential_mrn(): void

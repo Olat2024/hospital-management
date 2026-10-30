@@ -176,45 +176,6 @@ class PharmacyWorkflowTest extends TestCase
         $this->assertDatabaseCount('pharmacy_stock_movements', 0);
     }
 
-    public function test_standalone_dispensing_reduces_stock_and_records_a_stock_movement(): void
-    {
-        $medicine = $this->medicine($this->patient->hospital_id, 8);
-
-        $this->actingAs($this->pharmacist)
-            ->post(route('pharmacy.stock.dispense', $medicine), [
-                'quantity' => 3,
-                'reference' => 'Walk-in patient',
-            ])
-            ->assertRedirect()
-            ->assertSessionHas('success');
-
-        $this->assertSame(5, $medicine->fresh()->stock_quantity);
-        $this->assertDatabaseHas('pharmacy_stock_movements', [
-            'medicine_id' => $medicine->id,
-            'recorded_by' => $this->pharmacist->id,
-            'type' => 'dispensed',
-            'quantity' => 3,
-            'reference' => 'Walk-in patient',
-            'dispensation_id' => null,
-        ]);
-        $this->assertDatabaseCount('pharmacy_dispensations', 0);
-    }
-
-    public function test_standalone_dispensing_more_than_available_stock_is_rejected(): void
-    {
-        $medicine = $this->medicine($this->patient->hospital_id, 2);
-
-        $this->actingAs($this->pharmacist)
-            ->from(route('pharmacy.index'))
-            ->post(route('pharmacy.stock.dispense', $medicine), [
-                'quantity' => 3,
-            ])
-            ->assertSessionHasErrors('quantity');
-
-        $this->assertSame(2, $medicine->fresh()->stock_quantity);
-        $this->assertDatabaseCount('pharmacy_stock_movements', 0);
-    }
-
     public function test_pharmacy_access_is_limited_to_pharmacy_and_admin_roles(): void
     {
         $receptionist = User::factory()->create();

@@ -107,6 +107,12 @@ const initials = computed(() => {
                     </Link>
                 </li>
 
+                <li class="nav-item" v-if="hasPermission('admissions.view')">
+                    <Link :href="route('admissions.index')" class="nav-link text-white p-2" :title="isSidebarCollapsed ? 'Admissions' : undefined" :class="{ 'bg-primary rounded': $page.url.startsWith('/admissions') }">
+                        <i class="bi bi-hospital me-2"></i><span class="sidebar-label">Admissions</span>
+                    </Link>
+                </li>
+
                 <li class="nav-item" v-if="hasPermission('patients.create')">
                     <Link :href="route('patients.create')" class="nav-link text-white p-2" :title="isSidebarCollapsed ? 'Register Patient' : undefined" :class="{ 'bg-primary rounded': $page.url.startsWith('/patients/create') }">
                         <i class="bi bi-person-plus me-2"></i><span class="sidebar-label">Register Patient</span>

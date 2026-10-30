@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\Hospital;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -21,7 +22,13 @@ class RegisteredUserController extends Controller
      */
     public function create(): Response
     {
-        return Inertia::render('Auth/Register');
+        $hospital = Hospital::query()->where('is_active', true)->first();
+        $setup = $hospital?->setup;
+
+        return Inertia::render('Auth/Register', [
+            'hospitalName' => $setup?->name ?: ($hospital?->name ?: 'CarePoint Hospital'),
+            'logoUrl' => $setup?->logo_url ?? $hospital?->logo_url,
+        ]);
     }
 
     /**

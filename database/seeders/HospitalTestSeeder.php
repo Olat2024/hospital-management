@@ -1,4 +1,5 @@
 <?php
+
 namespace Database\Seeders;
 
 use App\Models\Doctor;
@@ -6,26 +7,24 @@ use App\Models\Hospital;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
-use Spatie\Permission\Models\Role;
 
-class HospitalTestSeeder extends Seeder {
-    public function run(): void {
-        // 1. Roles used by the route middleware
-        Role::firstOrCreate(['name' => 'Admin']);
-        Role::firstOrCreate(['name' => 'Doctor']);
-        Role::firstOrCreate(['name' => 'Receptionist']);
+class HospitalTestSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $this->call(PermissionSeeder::class);
 
-        // 2. A hospital for patients/appointments to belong to
+        // A hospital for patients and appointments to belong to.
         Hospital::firstOrCreate(
             ['name' => 'General Hospital'],
             ['address' => '1 Hospital Road, Ijebu Ode, Ogun State', 'is_active' => true]
         );
 
-        // 3. Admin user
+        // Admin user.
         $adminUser = $this->user('admin@hospital.com', 'Admin User', 'password', 'Admin');
         $adminUser->assignRole('Admin');
 
-        // 4. Doctor user + linked doctor profile
+        // Doctor user and linked doctor profile.
         $docUser = $this->user('doctor@hospital.com', 'Dr. John Doe', 'password', 'Doctor');
         $docUser->assignRole('Doctor');
 
@@ -36,12 +35,13 @@ class HospitalTestSeeder extends Seeder {
             'phone' => '08012345678',
         ]);
 
-        // 5. Receptionist user (registers patients / books appointments)
+        // Receptionist user (registers patients and books appointments).
         $this->user('receptionist@hospital.com', 'Rita Reception', 'password', 'Receptionist')
             ->assignRole('Receptionist');
     }
 
-    protected function user(string $email, string $name, string $password, string $role): User {
+    protected function user(string $email, string $name, string $password, string $role): User
+    {
         $user = User::firstOrCreate(['email' => $email], [
             'name' => $name,
             'password' => Hash::make($password),

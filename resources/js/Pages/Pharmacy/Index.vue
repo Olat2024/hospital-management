@@ -22,17 +22,12 @@ const medicineForm = useForm({
     reorder_level: 10,
 });
 const stockForm = useForm({ medicine_id: '', quantity: '', reference: '' });
-const stockDispenseForm = useForm({ quantity: '', reference: '' });
-const stockDispenseMedicine = ref(null);
 const dispenseForm = useForm({
     notes: '',
     items: [{ medicine_id: '', quantity: 1 }],
 });
 const selectedMedicine = computed(() =>
     props.medicines.data.find((medicine) => medicine.id === Number(stockForm.medicine_id))
-);
-const selectedStockDispenseMedicine = computed(() =>
-    props.medicines.data.find((medicine) => medicine.id === stockDispenseMedicine.value)
 );
 const medicineStockFor = (medicineId) =>
     props.medicines.data.find((medicine) => medicine.id === Number(medicineId));
@@ -66,22 +61,6 @@ const receiveStock = () => stockForm.post(route('pharmacy.stock.store', stockFor
     preserveScroll: true,
     onSuccess: () => stockForm.reset(),
 });
-
-const openStockDispense = (medicine) => {
-    stockDispenseForm.reset();
-    stockDispenseMedicine.value = medicine.id;
-};
-
-const recordStockDispense = () => stockDispenseForm.post(
-    route('pharmacy.stock.dispense', stockDispenseMedicine.value),
-    {
-        preserveScroll: true,
-        onSuccess: () => {
-            stockDispenseMedicine.value = null;
-            stockDispenseForm.reset();
-        },
-    }
-);
 
 const openDispense = (prescription) => {
     activePrescription.value = activePrescription.value === prescription.id ? null : prescription.id;
@@ -241,14 +220,9 @@ const analyticsCards = computed(() => [
                                 <span v-else class="badge bg-success">In stock</span>
                             </td>
                             <td v-if="canManage" class="text-end">
-                                <div class="d-flex flex-wrap justify-content-end gap-2">
-                                    <button type="button" class="btn btn-sm btn-outline-primary" @click="openStock(medicine)">
-                                        <i class="bi bi-box-seam me-1"></i> Receive stock
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" :disabled="medicine.stock_quantity < 1" @click="openStockDispense(medicine)">
-                                        <i class="bi bi-capsule me-1"></i> Dispense
-                                    </button>
-                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-primary" @click="openStock(medicine)">
+                                    <i class="bi bi-box-seam me-1"></i> Receive stock
+                                </button>
                             </td>
                         </tr>
                         <tr v-if="medicines.data.length === 0">
@@ -261,33 +235,6 @@ const analyticsCards = computed(() => [
                 <Link v-if="medicines.prev_page_url" :href="medicines.prev_page_url" class="btn btn-sm btn-outline-secondary">Previous medicines</Link>
                 <span v-else />
                 <Link v-if="medicines.next_page_url" :href="medicines.next_page_url" class="btn btn-sm btn-outline-secondary">More medicines</Link>
-            </div>
-        </div>
-
-        <div v-if="canManage && stockDispenseMedicine" class="card shadow-sm mb-4 border-danger">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-                <h5 class="mb-0">Record dispensing: {{ selectedStockDispenseMedicine?.name }}</h5>
-                <button type="button" class="btn-close" aria-label="Close" @click="stockDispenseMedicine = null; stockDispenseForm.reset()" />
-            </div>
-            <div class="card-body">
-                <form class="row g-3 align-items-end" @submit.prevent="recordStockDispense">
-                    <div class="col-md-3">
-                        <label for="stock-dispense-quantity" class="form-label">Quantity dispensed</label>
-                        <input id="stock-dispense-quantity" v-model="stockDispenseForm.quantity" type="number" min="1" :max="selectedStockDispenseMedicine?.stock_quantity" class="form-control" :class="{ 'is-invalid': stockDispenseForm.errors.quantity }" required>
-                        <div class="invalid-feedback">{{ stockDispenseForm.errors.quantity }}</div>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="stock-dispense-reference" class="form-label">Patient / reference (optional)</label>
-                        <input id="stock-dispense-reference" v-model="stockDispenseForm.reference" class="form-control" :class="{ 'is-invalid': stockDispenseForm.errors.reference }" placeholder="Patient or dispensing reference">
-                        <div class="invalid-feedback">{{ stockDispenseForm.errors.reference }}</div>
-                    </div>
-                    <div class="col-md-3 d-grid">
-                        <button type="submit" class="btn btn-danger" :disabled="stockDispenseForm.processing">
-                            <span v-if="stockDispenseForm.processing" class="spinner-border spinner-border-sm me-1" aria-hidden="true" />
-                            Confirm dispensing
-                        </button>
-                    </div>
-                </form>
             </div>
         </div>
 

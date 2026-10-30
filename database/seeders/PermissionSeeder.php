@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * The access-control matrix: which permissions exist and which roles hold them.
@@ -18,8 +19,11 @@ class PermissionSeeder extends Seeder
      */
     public const MATRIX = [
         'patients' => ['view', 'create', 'manage'],
+        'family-cards' => ['manage'],
         'appointments' => ['view', 'create', 'manage'],
         'medical-records' => ['view', 'create'],
+        'referrals' => ['create'],
+        'admissions' => ['view', 'manage'],
         'nursing' => ['view', 'manage'],
         'doctors' => ['manage'],
         'billing' => ['view', 'create', 'manage'],
@@ -36,8 +40,10 @@ class PermissionSeeder extends Seeder
     public const ROLE_PERMISSIONS = [
         'Receptionist' => [
             'patients.view', 'patients.create',
+            'family-cards.manage',
             'appointments.view', 'appointments.create',
             'medical-records.view',
+            'admissions.view', 'admissions.manage',
             'billing.view', 'billing.create', 'billing.manage',
             'hospital.view',
         ],
@@ -45,6 +51,8 @@ class PermissionSeeder extends Seeder
             'patients.view',
             'appointments.view',
             'medical-records.view', 'medical-records.create',
+            'referrals.create',
+            'admissions.view', 'admissions.manage',
             'nursing.view',
             'billing.view',
             'hospital.view',
@@ -57,6 +65,7 @@ class PermissionSeeder extends Seeder
             'patients.view',
             'appointments.view',
             'medical-records.view',
+            'admissions.view', 'admissions.manage',
             'nursing.view', 'nursing.manage',
         ],
         'Pharmacy' => [
@@ -68,6 +77,8 @@ class PermissionSeeder extends Seeder
 
     public function run(): void
     {
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
         foreach (self::MATRIX as $resource => $actions) {
             foreach ($actions as $action) {
                 Permission::firstOrCreate(['name' => "{$resource}.{$action}"]);
@@ -96,5 +107,15 @@ class PermissionSeeder extends Seeder
                 $role->givePermissionTo(array_intersect($permissions, ['nursing.view', 'nursing.manage']));
             }
         }
+
+        foreach ([
+            'Receptionist' => ['family-cards.manage', 'admissions.view', 'admissions.manage'],
+            'Doctor' => ['referrals.create', 'admissions.view', 'admissions.manage'],
+            'Nurse' => ['admissions.view', 'admissions.manage'],
+        ] as $roleName => $permissions) {
+            Role::findByName($roleName, 'web')->givePermissionTo($permissions);
+        }
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 }

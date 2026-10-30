@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\AdmissionController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DoctorController;
+use App\Http\Controllers\FamilyCardController;
 use App\Http\Controllers\HospitalSettingsController;
 use App\Http\Controllers\HospitalSetupController;
 use App\Http\Controllers\InvoiceController;
@@ -11,6 +13,7 @@ use App\Http\Controllers\NursingController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\PharmacyController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\StaffController;
 use App\Models\Hospital;
@@ -81,6 +84,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('permission:medical-records.create')
         ->name('medical-records.store');
 
+    Route::post('/patients/{patient}/family-card', [FamilyCardController::class, 'store'])
+        ->middleware('permission:family-cards.manage')
+        ->name('patients.family-card.store');
+
+    Route::post('/patients/{patient}/referrals', [ReferralController::class, 'store'])
+        ->middleware('permission:referrals.create')
+        ->name('patients.referrals.store');
+
+    Route::get('/admissions', [AdmissionController::class, 'index'])
+        ->middleware('permission:admissions.view')
+        ->name('admissions.index');
+
+    Route::middleware('permission:admissions.manage')->group(function () {
+        Route::post('/patients/{patient}/admissions', [AdmissionController::class, 'store'])
+            ->name('patients.admissions.store');
+        Route::post('/admissions/{admission}/discharge', [AdmissionController::class, 'discharge'])
+            ->name('admissions.discharge');
+    });
+
     Route::get('/nursing', [NursingController::class, 'index'])
         ->middleware('permission:nursing.view')
         ->name('nursing.index');
@@ -96,7 +118,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('permission:pharmacy.manage')->prefix('pharmacy')->name('pharmacy.')->group(function () {
         Route::post('/medicines', [PharmacyController::class, 'storeMedicine'])->name('medicines.store');
         Route::post('/medicines/{medicine}/stock', [PharmacyController::class, 'receiveStock'])->name('stock.store');
-        Route::post('/medicines/{medicine}/dispense', [PharmacyController::class, 'dispenseStock'])->name('stock.dispense');
         Route::post('/prescriptions/{record}/dispense', [PharmacyController::class, 'dispense'])->name('dispense');
     });
 

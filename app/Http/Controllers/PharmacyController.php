@@ -141,40 +141,6 @@ class PharmacyController extends Controller
         return back()->with('success', 'Stock received successfully.');
     }
 
-    public function dispenseStock(Request $request, int $medicine): RedirectResponse
-    {
-        $validated = $request->validate([
-            'quantity' => ['required', 'integer', 'min:1', 'max:10000000'],
-            'reference' => ['nullable', 'string', 'max:255'],
-        ]);
-        $hospital = Hospital::default();
-
-        DB::transaction(function () use ($medicine, $hospital, $validated, $request) {
-            $medicine = Medicine::query()
-                ->where('hospital_id', $hospital->id)
-                ->where('is_active', true)
-                ->lockForUpdate()
-                ->findOrFail($medicine);
-
-            if ($medicine->stock_quantity < $validated['quantity']) {
-                throw ValidationException::withMessages([
-                    'quantity' => "Only {$medicine->stock_quantity} units of {$medicine->name} are available.",
-                ]);
-            }
-
-            $medicine->decrement('stock_quantity', $validated['quantity']);
-            $medicine->stockMovements()->create([
-                'recorded_by' => $request->user()->id,
-                'type' => 'dispensed',
-                'quantity' => $validated['quantity'],
-                'reference' => $validated['reference'] ?? null,
-                'recorded_at' => now(),
-            ]);
-        });
-
-        return back()->with('success', 'Dispensing recorded and stock updated.');
-    }
-
     public function dispense(Request $request, int $record): RedirectResponse
     {
         $validated = $request->validate([
