@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\URL;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -37,5 +38,10 @@ class AppServiceProvider extends ServiceProvider
         // Administrators always pass authorization checks, even for permissions
         // added after the roles were last seeded.
         Gate::before(fn (User $user) => $user->hasRole('Admin') ? true : null);
+
+        if (app()->environment('production')) {
+        URL::forceScheme('https');
+        }
     }
+    
 }
