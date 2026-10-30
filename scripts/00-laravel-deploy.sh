@@ -28,4 +28,9 @@ composer install --no-dev --working-dir=/var/www/html
 
 echo "=== Running migrations ==="
 php artisan migrate --force
+
+echo "=== Creating super admin ==="
+php artisan db:seed --class=SuperAdminSeeder --force
+echo "=== Super admin ready ==="
+
 echo "=== Migrations complete ==="
