@@ -3,16 +3,19 @@ set -e
 
 cd /var/www/html
 
-: "${APP_KEY:?APP_KEY must be configured in the hosting environment}"
-: "${APP_URL:?APP_URL must be configured in the hosting environment}"
-
 export APP_ENV=production
 export APP_DEBUG=false
 export LOG_CHANNEL=stderr
+export APP_URL="${APP_URL:-${RENDER_EXTERNAL_URL:-}}"
 export DB_CONNECTION="${DB_CONNECTION:-pgsql}"
 export DB_PORT="${DB_PORT:-5432}"
 export SESSION_DRIVER="${SESSION_DRIVER:-database}"
 export CACHE_STORE="${CACHE_STORE:-file}"
+
+composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
+: "${APP_KEY:?APP_KEY must be configured in the hosting environment}"
+: "${APP_URL:?APP_URL or RENDER_EXTERNAL_URL must be configured in the hosting environment}"
 
 if [ -z "${DB_URL:-}" ]; then
     : "${DB_HOST:?Set DB_URL or configure DB_HOST, DB_DATABASE, DB_USERNAME, and DB_PASSWORD}"
@@ -20,8 +23,6 @@ if [ -z "${DB_URL:-}" ]; then
     : "${DB_USERNAME:?Set DB_URL or configure DB_HOST, DB_DATABASE, DB_USERNAME, and DB_PASSWORD}"
     : "${DB_PASSWORD:?Set DB_URL or configure DB_HOST, DB_DATABASE, DB_USERNAME, and DB_PASSWORD}"
 fi
-
-composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 
 php artisan config:clear
 php artisan route:clear
