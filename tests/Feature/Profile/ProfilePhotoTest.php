@@ -51,6 +51,27 @@ class ProfilePhotoTest extends TestCase
         $this->assertStringContainsString($user->avatar, $user->avatar_url);
     }
 
+    public function test_profile_photo_uses_the_configured_upload_disk(): void
+    {
+        Storage::fake('s3');
+        config(['filesystems.uploads_disk' => 's3']);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->patch('/profile', [
+                'name' => $user->name,
+                'email' => $user->email,
+                'avatar' => UploadedFile::fake()->image('me.png'),
+            ])
+            ->assertRedirect('/profile');
+
+        $user->refresh();
+
+        Storage::disk('s3')->assertExists($user->avatar);
+        $this->assertSame(Storage::disk('s3')->url($user->avatar), $user->avatar_url);
+    }
+
     public function test_replacing_the_photo_deletes_the_previous_one(): void
     {
         Storage::fake('public');

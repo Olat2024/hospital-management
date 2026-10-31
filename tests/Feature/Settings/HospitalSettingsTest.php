@@ -95,7 +95,8 @@ class HospitalSettingsTest extends TestCase
 
     public function test_admin_can_upload_a_hospital_logo(): void
     {
-        Storage::fake('public');
+        Storage::fake('s3');
+        config(['filesystems.uploads_disk' => 's3']);
 
         $hospital = Hospital::default();
 
@@ -110,8 +111,8 @@ class HospitalSettingsTest extends TestCase
 
         $this->assertNotNull($hospital->logo);
         $this->assertStringStartsWith('hospitals/', $hospital->logo);
-        Storage::disk('public')->assertExists($hospital->logo);
-        $this->assertStringContainsString($hospital->logo, $hospital->logo_url);
+        Storage::disk('s3')->assertExists($hospital->logo);
+        $this->assertSame(Storage::disk('s3')->url($hospital->logo), $hospital->logo_url);
     }
 
     public function test_admin_can_upload_hospital_setup_images_with_multipart_method_spoofing(): void
@@ -136,6 +137,30 @@ class HospitalSettingsTest extends TestCase
         $this->assertStringStartsWith('hospitals/', $setup->favicon);
         Storage::disk('public')->assertExists($setup->logo);
         Storage::disk('public')->assertExists($setup->favicon);
+    }
+
+    public function test_hospital_setup_images_use_the_configured_upload_disk(): void
+    {
+        Storage::fake('s3');
+        config(['filesystems.uploads_disk' => 's3']);
+
+        $setup = HospitalSetup::forHospital(Hospital::default()->id);
+
+        $this->actingAs($this->admin())
+            ->put('/settings/hospital-setup', [
+                'name' => 'Siloam Grace Clinic & Maternity Home',
+                'logo' => UploadedFile::fake()->image('logo.png'),
+                'favicon' => UploadedFile::fake()->image('favicon.png'),
+            ])
+            ->assertRedirect('/settings/hospital-setup')
+            ->assertSessionHas('success');
+
+        $setup->refresh();
+
+        Storage::disk('s3')->assertExists($setup->logo);
+        Storage::disk('s3')->assertExists($setup->favicon);
+        $this->assertSame(Storage::disk('s3')->url($setup->logo), $setup->logo_url);
+        $this->assertSame(Storage::disk('s3')->url($setup->favicon), $setup->favicon_url);
     }
 
     public function test_replacing_the_logo_deletes_the_old_file(): void

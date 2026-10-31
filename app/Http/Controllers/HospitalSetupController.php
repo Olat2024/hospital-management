@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 class HospitalSetupController extends Controller
 {
@@ -28,58 +29,68 @@ class HospitalSetupController extends Controller
 
         $validated = $request->validate([
             // Branding
-            'logo'            => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:2048'],
-            'remove_logo'     => ['nullable', 'boolean'],
-            'favicon'         => ['nullable', 'image', 'mimes:png,ico,svg', 'max:512'],
-            'remove_favicon'  => ['nullable', 'boolean'],
-            'primary_color'   => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:2048'],
+            'remove_logo' => ['nullable', 'boolean'],
+            'favicon' => ['nullable', 'image', 'mimes:png,ico,svg', 'max:512'],
+            'remove_favicon' => ['nullable', 'boolean'],
+            'primary_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'secondary_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
 
             // Identity
-            'name'    => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255'],
             'tagline' => ['nullable', 'string', 'max:255'],
 
             // Address
-            'address'     => ['nullable', 'string', 'max:1000'],
-            'city'        => ['nullable', 'string', 'max:255'],
-            'state'       => ['nullable', 'string', 'max:255'],
-            'country'     => ['nullable', 'string', 'max:255'],
+            'address' => ['nullable', 'string', 'max:1000'],
+            'city' => ['nullable', 'string', 'max:255'],
+            'state' => ['nullable', 'string', 'max:255'],
+            'country' => ['nullable', 'string', 'max:255'],
             'postal_code' => ['nullable', 'string', 'max:20'],
 
             // Contact
-            'phone'   => ['nullable', 'string', 'max:50'],
-            'email'   => ['nullable', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'email' => ['nullable', 'email', 'max:255'],
             'website' => ['nullable', 'url', 'max:255'],
 
             // Social / Meta
             'social_links' => ['nullable', 'json'],
-            'footer_text'  => ['nullable', 'string', 'max:1000'],
+            'footer_text' => ['nullable', 'string', 'max:1000'],
 
             // Settings
             'timezone' => ['nullable', 'string', 'max:64'],
             'currency' => ['nullable', 'string', 'size:3'],
-            'locale'   => ['nullable', 'string', 'max:5'],
+            'locale' => ['nullable', 'string', 'max:5'],
         ]);
 
         // ---- Logo ----
         if ($request->hasFile('logo')) {
-            if ($setup->logo) {
-                Storage::disk('public')->delete($setup->logo);
+            $logo = $request->file('logo')->store('hospitals', config('filesystems.uploads_disk', 'public'));
+            if ($logo === false) {
+                throw new RuntimeException('Failed to store the hospital logo.');
             }
-            $setup->logo = $request->file('logo')->store('hospitals', 'public');
+
+            if ($setup->logo) {
+                Storage::disk(config('filesystems.uploads_disk', 'public'))->delete($setup->logo);
+            }
+            $setup->logo = $logo;
         } elseif (! empty($validated['remove_logo']) && $setup->logo) {
-            Storage::disk('public')->delete($setup->logo);
+            Storage::disk(config('filesystems.uploads_disk', 'public'))->delete($setup->logo);
             $setup->logo = null;
         }
 
         // ---- Favicon ----
         if ($request->hasFile('favicon')) {
-            if ($setup->favicon) {
-                Storage::disk('public')->delete($setup->favicon);
+            $favicon = $request->file('favicon')->store('hospitals', config('filesystems.uploads_disk', 'public'));
+            if ($favicon === false) {
+                throw new RuntimeException('Failed to store the hospital favicon.');
             }
-            $setup->favicon = $request->file('favicon')->store('hospitals', 'public');
+
+            if ($setup->favicon) {
+                Storage::disk(config('filesystems.uploads_disk', 'public'))->delete($setup->favicon);
+            }
+            $setup->favicon = $favicon;
         } elseif (! empty($validated['remove_favicon']) && $setup->favicon) {
-            Storage::disk('public')->delete($setup->favicon);
+            Storage::disk(config('filesystems.uploads_disk', 'public'))->delete($setup->favicon);
             $setup->favicon = null;
         }
 

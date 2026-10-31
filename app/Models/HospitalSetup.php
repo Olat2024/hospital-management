@@ -40,11 +40,11 @@ class HospitalSetup extends Model
 
     public function getLogoUrlAttribute(): ?string
     {
-        return $this->logo ? Storage::disk('public')->url($this->logo) : null;
+        return $this->logo ? Storage::disk(config('filesystems.uploads_disk', 'public'))->url($this->logo) : null;
     }
 
     public function getFaviconUrlAttribute(): ?string
     {
-        return $this->favicon ? Storage::disk('public')->url($this->favicon) : null;
+        return $this->favicon ? Storage::disk(config('filesystems.uploads_disk', 'public'))->url($this->favicon) : null;
     }
 }

@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 class ProfileController extends Controller
 {
@@ -34,11 +35,16 @@ class ProfileController extends Controller
         $data = $request->validated();
 
         if ($request->hasFile('avatar')) {
-            if ($user->avatar) {
-                Storage::disk('public')->delete($user->avatar);
+            $avatar = $request->file('avatar')->store('avatars', config('filesystems.uploads_disk', 'public'));
+            if ($avatar === false) {
+                throw new RuntimeException('Failed to store the profile image.');
             }
 
-            $user->avatar = $request->file('avatar')->store('avatars', 'public');
+            if ($user->avatar) {
+                Storage::disk(config('filesystems.uploads_disk', 'public'))->delete($user->avatar);
+            }
+
+            $user->avatar = $avatar;
         }
 
         unset($data['avatar']);
