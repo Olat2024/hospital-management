@@ -58,12 +58,11 @@ php artisan tinker --execute="DB::connection()->getPdo(); echo 'DB OK';"
 echo "=== [bootstrap] running migrations ==="
 php artisan migrate --force
 
-# 9. Seed
-echo "=== [bootstrap] seeding super admin ==="
-php artisan db:seed --class=SuperAdminSeeder --force
-
 echo "=== [bootstrap] seeding permissions ==="
 php artisan db:seed --class=PermissionSeeder --force
+
+echo "=== [bootstrap] seeding super admin ==="
+php artisan db:seed --class=SuperAdminSeeder --force
 
 # 10. Clear Spatie + Laravel caches
 php artisan cache:clear || true
