@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Doctor;
 use App\Models\Hospital;
 use App\Models\Patient;
 use Illuminate\Http\Request;
@@ -20,13 +19,12 @@ class MedicalRecordController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        // Automatically fetch the doctor profile linked to the current logged-in user
-        $doctor = Doctor::where('user_id', $request->user()->id)
-            ->where('hospital_id', $hospital->id)
-            ->first();
+        $doctor = $request->user()->doctorProfile;
 
         if (! $doctor) {
-            return back()->withErrors(['error' => 'No doctor profile found for this user account.']);
+            return back()->withErrors([
+                'error' => 'This Doctor login is not linked to a doctor profile. Ask an administrator to link it from Doctors → Add Doctor.',
+            ]);
         }
 
         $validated['doctor_id'] = $doctor->id;

@@ -3,7 +3,12 @@
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
+const props = defineProps({
+    unlinkedDoctorUsers: Array,
+});
+
 const form = useForm({
+    user_id: '',
     first_name: '',
     last_name: '',
     specialization: '',
@@ -95,9 +100,24 @@ const submit = () => {
 
                             <h6 class="border-bottom pb-2 text-muted">Login Account</h6>
                             <p class="small text-muted">
-                                A staff login is created automatically so this doctor can sign in and write clinical notes.
+                                Link an existing Doctor login or create a new account. Linking enables the doctor to save clinical notes under their profile.
                             </p>
-                            <div class="row mb-4">
+                            <div class="mb-3">
+                                <label for="doctor-user" class="form-label">Doctor login account</label>
+                                <select
+                                    id="doctor-user"
+                                    v-model="form.user_id"
+                                    class="form-select"
+                                    :class="{ 'is-invalid': form.errors.user_id }"
+                                >
+                                    <option value="">Create a new login account</option>
+                                    <option v-for="account in props.unlinkedDoctorUsers" :key="account.id" :value="account.id">
+                                        {{ account.name }} ({{ account.email }})
+                                    </option>
+                                </select>
+                                <div class="invalid-feedback">{{ form.errors.user_id }}</div>
+                            </div>
+                            <div v-if="!form.user_id" class="row mb-4">
                                 <div class="col-md-6">
                                     <label for="email" class="form-label">Email</label>
                                     <input
@@ -123,6 +143,9 @@ const submit = () => {
                                     >
                                     <div class="invalid-feedback" v-if="form.errors.password">{{ form.errors.password }}</div>
                                 </div>
+                            </div>
+                            <div v-else class="alert alert-info py-2 mb-4">
+                                This profile will be linked to the selected login account. No new account or password will be created.
                             </div>
 
                             <div class="d-flex justify-content-end gap-2">

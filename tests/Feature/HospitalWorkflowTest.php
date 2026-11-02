@@ -390,6 +390,48 @@ class HospitalWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_doctor_can_add_a_note_when_the_patient_is_in_the_active_hospital_even_if_profile_has_a_legacy_hospital_assignment(): void
+    {
+        $otherHospital = Hospital::create(['name' => 'Former Hospital', 'is_active' => false]);
+        $this->doctor->update(['hospital_id' => $otherHospital->id]);
+        $patient = $this->makePatient();
+
+        $this->actingAs($this->doctorUser)
+            ->post(route('medical-records.store'), [
+                'patient_id' => $patient->id,
+                'diagnosis' => 'Cross-assignment note',
+            ])
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('medical_records', [
+            'patient_id' => $patient->id,
+            'doctor_id' => $this->doctor->id,
+            'diagnosis' => 'Cross-assignment note',
+        ]);
+    }
+
+    public function test_doctor_without_a_profile_gets_actionable_guidance_when_saving_a_note(): void
+    {
+        $unlinkedDoctor = User::factory()->create(['email_verified_at' => now()]);
+        $unlinkedDoctor->assignRole('Doctor');
+        $patient = $this->makePatient();
+
+        $this->actingAs($unlinkedDoctor)
+            ->from(route('patients.show', $patient))
+            ->post(route('medical-records.store'), [
+                'patient_id' => $patient->id,
+                'diagnosis' => 'Profile linking check',
+            ])
+            ->assertSessionHasErrors([
+                'error' => 'This Doctor login is not linked to a doctor profile. Ask an administrator to link it from Doctors → Add Doctor.',
+            ]);
+
+        $this->assertDatabaseMissing('medical_records', [
+            'patient_id' => $patient->id,
+            'diagnosis' => 'Profile linking check',
+        ]);
+    }
+
     public function test_receptionist_cannot_add_clinical_notes(): void
     {
         $patient = $this->makePatient();
@@ -423,6 +465,52 @@ class HospitalWorkflowTest extends TestCase
         $user = User::where('email', 'amina.yusuf@hospital.com')->firstOrFail();
         $this->assertTrue($user->hasRole('Doctor'));
         $this->assertTrue($user->email_verified_at !== null);
+    }
+
+    public function test_admin_can_link_an_existing_doctor_login_to_a_profile(): void
+    {
+        $unlinkedDoctor = User::factory()->create([
+            'name' => 'Doctor Login',
+            'email_verified_at' => now(),
+        ]);
+        $unlinkedDoctor->assignRole('Doctor');
+
+        $this->actingAs($this->admin)
+            ->get(route('doctors.create'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Doctors/Create')
+                ->where('unlinkedDoctorUsers.0.id', $unlinkedDoctor->id));
+
+        $this->actingAs($this->admin)
+            ->post(route('doctors.store'), [
+                'user_id' => $unlinkedDoctor->id,
+                'first_name' => 'Mariam',
+                'last_name' => 'Bello',
+                'specialization' => 'Family Medicine',
+                'phone' => '08077778888',
+                'is_active' => true,
+            ])
+            ->assertRedirect(route('doctors.index'));
+
+        $doctor = Doctor::where('user_id', $unlinkedDoctor->id)->firstOrFail();
+        $this->assertSame($this->hospital->id, $doctor->hospital_id);
+        $this->assertSame('Mariam Bello', $unlinkedDoctor->fresh()->name);
+        $this->assertSame(1, User::where('email', $unlinkedDoctor->email)->count());
+
+        $patient = $this->makePatient();
+        $this->actingAs($unlinkedDoctor)
+            ->post(route('medical-records.store'), [
+                'patient_id' => $patient->id,
+                'diagnosis' => 'Linked doctor note',
+            ])
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('medical_records', [
+            'patient_id' => $patient->id,
+            'doctor_id' => $doctor->id,
+            'diagnosis' => 'Linked doctor note',
+        ]);
     }
 
     public function test_receptionist_cannot_manage_doctors(): void

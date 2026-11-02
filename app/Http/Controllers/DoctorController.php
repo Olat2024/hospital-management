@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Doctor;
@@ -8,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 /**
@@ -18,9 +20,10 @@ use Inertia\Inertia;
  * cascading FK and medical_records.doctor_id cascades too, so a hard delete
  * would silently destroy patient clinical notes.
  */
-class DoctorController extends Controller {
-
-    public function index(Request $request) {
+class DoctorController extends Controller
+{
+    public function index(Request $request)
+    {
         $search = trim((string) $request->query('search', ''));
 
         $query = Doctor::with('user')->withCount('appointments');
@@ -46,34 +49,54 @@ class DoctorController extends Controller {
         ]);
     }
 
-    public function create() {
-        return Inertia::render('Doctors/Create');
+    public function create()
+    {
+        return Inertia::render('Doctors/Create', [
+            'unlinkedDoctorUsers' => User::query()
+                ->whereHas('roles', fn ($query) => $query->where('name', 'Doctor'))
+                ->whereDoesntHave('doctorProfile')
+                ->orderBy('name')
+                ->get(['id', 'name', 'email']),
+        ]);
     }
 
-    public function store(Request $request) {
+    public function store(Request $request)
+    {
         $validated = $request->validate([
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'specialization' => 'required|string|max:255',
             'phone' => 'required|string|max:20',
             'is_active' => 'nullable|boolean',
-            'email' => 'required|email|max:255|unique:users,email',
-            'password' => 'required|string|min:8',
+            'email' => ['required_without:user_id', 'nullable', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required_without:user_id', 'nullable', 'string', 'min:8'],
         ]);
 
         $doctor = DB::transaction(function () use ($validated) {
-            $user = User::create([
-                'name' => $validated['first_name'].' '.$validated['last_name'],
-                'email' => $validated['email'],
-                'password' => Hash::make($validated['password']),
-            ]);
+            if ($validated['user_id'] ?? false) {
+                $user = User::query()->lockForUpdate()->findOrFail($validated['user_id']);
 
-            // Not fillable on User, so set it explicitly: doctors must land on
-            // the verified side of the `verified` middleware.
-            $user->email_verified_at = now();
-            $user->save();
+                if (! $user->hasRole('Doctor') || $user->doctorProfile()->exists()) {
+                    throw ValidationException::withMessages([
+                        'user_id' => 'Select an unlinked account with the Doctor role.',
+                    ]);
+                }
 
-            $user->assignRole('Doctor');
+                $user->name = $validated['first_name'].' '.$validated['last_name'];
+                $user->save();
+            } else {
+                $user = User::create([
+                    'name' => $validated['first_name'].' '.$validated['last_name'],
+                    'email' => $validated['email'],
+                    'password' => Hash::make($validated['password']),
+                ]);
+
+                // Doctors must land on the verified side of the verified middleware.
+                $user->email_verified_at = now();
+                $user->save();
+                $user->assignRole('Doctor');
+            }
 
             return Doctor::create([
                 'user_id' => $user->id,
@@ -90,13 +113,15 @@ class DoctorController extends Controller {
             ->with('success', "Dr. {$doctor->first_name} {$doctor->last_name} added successfully.");
     }
 
-    public function edit(Doctor $doctor) {
+    public function edit(Doctor $doctor)
+    {
         return Inertia::render('Doctors/Edit', [
             'doctor' => $doctor->load('user'),
         ]);
     }
 
-    public function update(Request $request, Doctor $doctor) {
+    public function update(Request $request, Doctor $doctor)
+    {
         $validated = $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
@@ -121,7 +146,7 @@ class DoctorController extends Controller {
             $user->name = $validated['first_name'].' '.$validated['last_name'];
             $user->email = $validated['email'];
 
-            if (!empty($validated['password'])) {
+            if (! empty($validated['password'])) {
                 $user->password = Hash::make($validated['password']);
             }
 
@@ -135,7 +160,8 @@ class DoctorController extends Controller {
     /**
      * Deactivate (never hard-delete) a doctor to preserve clinical records.
      */
-    public function destroy(Request $request, Doctor $doctor) {
+    public function destroy(Request $request, Doctor $doctor)
+    {
         $doctor->update(['is_active' => false]);
 
         return redirect()->route('doctors.index')
