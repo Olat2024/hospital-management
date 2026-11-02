@@ -15,4 +15,7 @@ ENV LOG_CHANNEL stderr
 
 RUN echo "clear_env = no" >> /usr/local/etc/php-fpm.d/www.conf
 
+# Ensure our custom startup script is executable
+RUN chmod +x /var/www/html/scripts/00-bootstrap.sh
+
 CMD ["/start.sh"]

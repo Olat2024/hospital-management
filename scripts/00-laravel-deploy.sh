@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
 set -e
-set -x
 
+echo "=== [bootstrap] Starting ==="
 cd /var/www/html
 
-# --- 1. Remove any cached config baked into the image BEFORE writing .env ---
-rm -f bootstrap/cache/config.php
-rm -f bootstrap/cache/routes-*.php
-
-# --- 2. Write .env ---
+# 1. Write .env so Artisan commands use the correct DB
 cat > /var/www/html/.env <<EOF
 APP_NAME=Laravel
 APP_ENV=production
@@ -26,52 +22,58 @@ SESSION_DRIVER=database
 CACHE_STORE=file
 EOF
 
-echo "=== .env written ==="
-grep DB_HOST /var/www/html/.env
+echo "=== [bootstrap] .env written ==="
+grep DB_HOST .env
 
-# --- 3. Clear caches AFTER .env is in place ---
+# 2. Remove any cached config baked into the image
+rm -f bootstrap/cache/config.php
+rm -f bootstrap/cache/routes-*.php
+
+# 3. Install Composer dependencies (generates vendor/autoload.php)
+echo "=== [bootstrap] composer install ==="
+composer install --no-dev --optimize-autoloader
+
+if [ ! -f vendor/autoload.php ]; then
+    echo "FATAL: vendor/autoload.php still missing after composer install"
+    exit 1
+fi
+
+# 4. Regenerate autoloader so new Seeder classes are found
+composer dump-autoload --no-dev --optimize
+
+# 5. Ensure storage/cache dirs are writable
+mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+chmod -R 775 storage bootstrap/cache || true
+
+# 6. Clear caches AFTER .env is in place
 php artisan config:clear
 php artisan route:clear || true
 php artisan view:clear || true
 
-# --- 4. Ensure storage/bootstrap cache dirs are writable ---
-mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
-chmod -R 775 storage bootstrap/cache || true
-
-# --- 5. Install dependencies ---
-composer install --no-dev --working-dir=/var/www/html
-composer dump-autoload --no-dev --working-dir=/var/www/html
-
-# --- 6. Verify DB connectivity before touching the schema ---
-echo "=== Testing DB connection ==="
+# 7. Verify DB connectivity before migrating
+echo "=== [bootstrap] testing DB connection ==="
 php artisan tinker --execute="DB::connection()->getPdo(); echo 'DB OK';"
 
-# --- 7. Migrate ---
-echo "=== Running migrations ==="
+# 8. Run migrations
+echo "=== [bootstrap] running migrations ==="
 php artisan migrate --force
 
-# --- 8. Clear caches again (Spatie + Laravel) ---
-echo "=== Clearing caches ==="
+# 9. Seed
+echo "=== [bootstrap] seeding super admin ==="
+php artisan db:seed --class=SuperAdminSeeder --force
+
+echo "=== [bootstrap] seeding permissions ==="
+php artisan db:seed --class=PermissionSeeder --force
+
+# 10. Clear Spatie + Laravel caches
 php artisan cache:clear || true
 php artisan permission:cache-reset || true
 
-# --- 9. Seed ---
-echo "=== Creating super admin ==="
-php artisan db:seed --class=SuperAdminSeeder --force
-echo "=== Super admin ready ==="
-
-echo "=== Seeding permissions ==="
-php artisan db:seed --class=PermissionSeeder --force
-echo "=== Permissions ready ==="
-
-# --- 10. Verify seeding actually inserted data ---
-echo "=== Verifying seeded data ==="
+# 11. Verify seeding actually inserted data
+echo "=== [bootstrap] verifying seeded data ==="
 php artisan tinker --execute="
   echo 'permissions=' . \Spatie\Permission\Models\Permission::count() . PHP_EOL;
   echo 'roles=' . \Spatie\Permission\Models\Role::count() . PHP_EOL;
-  foreach (\Spatie\Permission\Models\Role::withCount('permissions')->get() as \$r) {
-      echo \$r->name . ' => ' . \$r->permissions_count . PHP_EOL;
-  }
 "
 
-echo "=== Done ==="
+echo "=== [bootstrap] Done ==="
