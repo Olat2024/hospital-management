@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 set -e
+set -x
 
 cd /var/www/html
 
-php artisan config:clear || true
-php artisan route:clear || true
+# --- 1. Remove any cached config baked into the image BEFORE writing .env ---
+rm -f bootstrap/cache/config.php
+rm -f bootstrap/cache/routes-*.php
 
+# --- 2. Write .env ---
 cat > /var/www/html/.env <<EOF
 APP_NAME=Laravel
 APP_ENV=production
@@ -26,18 +29,33 @@ EOF
 echo "=== .env written ==="
 grep DB_HOST /var/www/html/.env
 
-composer install --no-dev --working-dir=/var/www/html
+# --- 3. Clear caches AFTER .env is in place ---
+php artisan config:clear
+php artisan route:clear || true
+php artisan view:clear || true
 
-# Regenerate autoloader so new Seeder classes are found on Render
-echo "=== Dumping autoload ==="
+# --- 4. Ensure storage/bootstrap cache dirs are writable ---
+mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+chmod -R 775 storage bootstrap/cache || true
+
+# --- 5. Install dependencies ---
+composer install --no-dev --working-dir=/var/www/html
 composer dump-autoload --no-dev --working-dir=/var/www/html
 
+# --- 6. Verify DB connectivity before touching the schema ---
+echo "=== Testing DB connection ==="
+php artisan tinker --execute="DB::connection()->getPdo(); echo 'DB OK';"
+
+# --- 7. Migrate ---
 echo "=== Running migrations ==="
 php artisan migrate --force
 
-echo "=== Clearing permission cache ==="
+# --- 8. Clear caches again (Spatie + Laravel) ---
+echo "=== Clearing caches ==="
+php artisan cache:clear || true
 php artisan permission:cache-reset || true
 
+# --- 9. Seed ---
 echo "=== Creating super admin ==="
 php artisan db:seed --class=SuperAdminSeeder --force
 echo "=== Super admin ready ==="
@@ -45,5 +63,15 @@ echo "=== Super admin ready ==="
 echo "=== Seeding permissions ==="
 php artisan db:seed --class=PermissionSeeder --force
 echo "=== Permissions ready ==="
+
+# --- 10. Verify seeding actually inserted data ---
+echo "=== Verifying seeded data ==="
+php artisan tinker --execute="
+  echo 'permissions=' . \Spatie\Permission\Models\Permission::count() . PHP_EOL;
+  echo 'roles=' . \Spatie\Permission\Models\Role::count() . PHP_EOL;
+  foreach (\Spatie\Permission\Models\Role::withCount('permissions')->get() as \$r) {
+      echo \$r->name . ' => ' . \$r->permissions_count . PHP_EOL;
+  }
+"
 
 echo "=== Done ==="

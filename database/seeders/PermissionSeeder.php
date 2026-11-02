@@ -79,41 +79,36 @@ class PermissionSeeder extends Seeder
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
+        // 1. Create every permission in the matrix (idempotent).
         foreach (self::MATRIX as $resource => $actions) {
             foreach ($actions as $action) {
-                Permission::firstOrCreate(['name' => "{$resource}.{$action}"]);
+                Permission::firstOrCreate([
+                    'name'       => "{$resource}.{$action}",
+                    'guard_name' => 'web',
+                ]);
             }
         }
 
         $all = Permission::query()->pluck('name')->all();
 
-        Role::firstOrCreate(['name' => 'Admin'])->syncPermissions($all);
-        Role::firstOrCreate(['name' => 'Doctor']);
-        Role::firstOrCreate(['name' => 'Receptionist']);
-        Role::firstOrCreate(['name' => 'Pharmacy']);
-        Role::firstOrCreate(['name' => 'Lab Technician']);
-        Role::firstOrCreate(['name' => 'Nurse']);
+        // 2. Create every role (idempotent).
+        $roleNames = array_unique(array_merge(
+            ['Admin'],
+            array_keys(self::ROLE_PERMISSIONS),
+        ));
 
-        foreach (self::ROLE_PERMISSIONS as $role => $permissions) {
-            $role = Role::findByName($role, 'web');
-
-            if ($role->name === 'Pharmacy') {
-                $role->givePermissionTo($permissions);
-            } elseif (! $role->permissions()->exists()) {
-                $role->syncPermissions($permissions);
-            }
-
-            if (in_array($role->name, ['Doctor', 'Nurse'], true)) {
-                $role->givePermissionTo(array_intersect($permissions, ['nursing.view', 'nursing.manage']));
-            }
+        foreach ($roleNames as $name) {
+            Role::firstOrCreate([
+                'name'       => $name,
+                'guard_name' => 'web',
+            ]);
         }
 
-        foreach ([
-            'Receptionist' => ['family-cards.manage', 'admissions.view', 'admissions.manage'],
-            'Doctor' => ['referrals.create', 'admissions.view', 'admissions.manage'],
-            'Nurse' => ['admissions.view', 'admissions.manage'],
-        ] as $roleName => $permissions) {
-            Role::findByName($roleName, 'web')->givePermissionTo($permissions);
+        // 3. Declarative sync: every role ends up with exactly what the matrix says.
+        Role::findByName('Admin', 'web')->syncPermissions($all);
+
+        foreach (self::ROLE_PERMISSIONS as $roleName => $permissions) {
+            Role::findByName($roleName, 'web')->syncPermissions($permissions);
         }
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
