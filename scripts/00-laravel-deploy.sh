@@ -28,9 +28,22 @@ grep DB_HOST /var/www/html/.env
 
 composer install --no-dev --working-dir=/var/www/html
 
+# Regenerate autoloader so new Seeder classes are found on Render
+echo "=== Dumping autoload ==="
+composer dump-autoload --no-dev --working-dir=/var/www/html
+
 echo "=== Running migrations ==="
 php artisan migrate --force
+
+echo "=== Clearing permission cache ==="
+php artisan permission:cache-reset || true
 
 echo "=== Creating super admin ==="
 php artisan db:seed --class=SuperAdminSeeder --force
 echo "=== Super admin ready ==="
+
+echo "=== Seeding permissions ==="
+php artisan db:seed --class=PermissionSeeder --force
+echo "=== Permissions ready ==="
+
+echo "=== Done ==="
