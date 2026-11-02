@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Doctor;
 use App\Models\Hospital;
+use App\Models\Invoice;
 use App\Models\MedicalRecord;
 use App\Models\Medicine;
 use App\Models\Patient;
@@ -76,6 +77,7 @@ class PharmacyWorkflowTest extends TestCase
                 'generic_name' => 'Example compound',
                 'strength' => '250 mg',
                 'dosage_form' => 'Tablet',
+                'unit_price' => '125.50',
                 'initial_stock' => 10,
                 'reorder_level' => 3,
             ])
@@ -120,6 +122,90 @@ class PharmacyWorkflowTest extends TestCase
             'quantity' => 4,
             'dispensation_id' => $this->prescription->dispensations()->first()->id,
         ]);
+        $dispensation = $this->prescription->dispensations()->first();
+        $invoice = $dispensation->invoice;
+        $this->assertNotNull($invoice);
+        $this->assertSame('unpaid', $invoice->status);
+        $this->assertSame('502.00', $invoice->total);
+        $this->assertDatabaseHas('invoice_items', [
+            'invoice_id' => $invoice->id,
+            'quantity' => 4,
+            'unit_price' => '125.50',
+            'amount' => '502.00',
+        ]);
+        $this->assertDatabaseHas('pharmacy_dispensation_items', [
+            'dispensation_id' => $dispensation->id,
+            'unit_price' => '125.50',
+            'amount' => '502.00',
+        ]);
+    }
+
+    public function test_dispensing_multiple_medicines_generates_one_invoice_with_quantity_totals(): void
+    {
+        $firstMedicine = $this->medicine($this->patient->hospital_id, 10);
+        $firstMedicine->update(['unit_price' => '125.50']);
+        $secondMedicine = $this->medicine($this->patient->hospital_id, 10);
+        $secondMedicine->update(['name' => 'Second medicine', 'unit_price' => '40.00']);
+
+        $this->actingAs($this->pharmacist)
+            ->post(route('pharmacy.dispense', $this->prescription), [
+                'items' => [
+                    ['medicine_id' => $firstMedicine->id, 'quantity' => 2],
+                    ['medicine_id' => $secondMedicine->id, 'quantity' => 5],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success', fn (string $message) => str_contains($message, 'invoice INV-'));
+
+        $this->assertDatabaseCount('invoices', 1);
+        $invoice = Invoice::firstOrFail();
+        $this->assertSame('451.00', $invoice->total);
+        $this->assertCount(2, $invoice->items);
+        $this->assertDatabaseHas('invoice_items', [
+            'invoice_id' => $invoice->id,
+            'description' => 'Sample medicine · 100 mg · Capsule',
+            'quantity' => 2,
+            'unit_price' => '125.50',
+            'amount' => '251.00',
+        ]);
+        $this->assertDatabaseHas('invoice_items', [
+            'invoice_id' => $invoice->id,
+            'description' => 'Second medicine · 100 mg · Capsule',
+            'quantity' => 5,
+            'unit_price' => '40.00',
+            'amount' => '200.00',
+        ]);
+    }
+
+    public function test_dispensing_a_medicine_without_a_price_is_rejected_without_stock_changes(): void
+    {
+        $medicine = $this->medicine($this->patient->hospital_id, 5);
+        $medicine->update(['unit_price' => '0.00']);
+
+        $this->actingAs($this->pharmacist)
+            ->from(route('pharmacy.index'))
+            ->post(route('pharmacy.dispense', $this->prescription), [
+                'items' => [
+                    ['medicine_id' => $medicine->id, 'quantity' => 2],
+                ],
+            ])
+            ->assertSessionHasErrors('items');
+
+        $this->assertSame(5, $medicine->fresh()->stock_quantity);
+        $this->assertDatabaseCount('pharmacy_dispensations', 0);
+        $this->assertDatabaseCount('invoices', 0);
+    }
+
+    public function test_pharmacist_can_update_an_existing_medicine_unit_price(): void
+    {
+        $medicine = $this->medicine($this->patient->hospital_id, 5);
+
+        $this->actingAs($this->pharmacist)
+            ->patch(route('pharmacy.medicines.price', $medicine), ['unit_price' => '19.99'])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertSame('19.99', $medicine->fresh()->unit_price);
     }
 
     public function test_pharmacy_role_receives_its_attached_permissions_when_logged_in(): void
@@ -235,6 +321,7 @@ class PharmacyWorkflowTest extends TestCase
             'name' => 'Sample medicine',
             'strength' => '100 mg',
             'dosage_form' => 'Capsule',
+            'unit_price' => '10.00',
             'stock_quantity' => $stock,
             'reorder_level' => 2,
             'is_active' => true,

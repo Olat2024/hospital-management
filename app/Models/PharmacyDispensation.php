@@ -11,6 +11,7 @@ class PharmacyDispensation extends Model
     protected $fillable = [
         'medical_record_id',
         'dispensed_by',
+        'invoice_id',
         'notes',
         'dispensed_at',
     ];
@@ -27,6 +28,11 @@ class PharmacyDispensation extends Model
     public function dispensedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'dispensed_by');
+    }
+
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
     }
 
     public function items(): HasMany

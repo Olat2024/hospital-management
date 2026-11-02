@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Hospital;
+use App\Models\Invoice;
 use App\Models\MedicalRecord;
 use App\Models\Medicine;
 use App\Models\PharmacyDispensation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -55,6 +57,7 @@ class PharmacyController extends Controller
         return Inertia::render('Pharmacy/Index', [
             'medicines' => $medicines,
             'prescriptions' => $prescriptions,
+            'currency' => $hospital->currency ?: 'USD',
             'filters' => ['search' => $search],
             'summary' => [
                 'medicineCount' => Medicine::where('hospital_id', $hospital->id)->where('is_active', true)->count(),
@@ -83,6 +86,7 @@ class PharmacyController extends Controller
             'generic_name' => ['nullable', 'string', 'max:255'],
             'strength' => ['nullable', 'string', 'max:100'],
             'dosage_form' => ['nullable', 'string', 'max:100'],
+            'unit_price' => ['required', 'numeric', 'gt:0', 'max:100000000', 'decimal:0,2'],
             'initial_stock' => ['required', 'integer', 'min:0', 'max:10000000'],
             'reorder_level' => ['required', 'integer', 'min:0', 'max:10000000'],
         ]);
@@ -94,6 +98,7 @@ class PharmacyController extends Controller
                 'generic_name' => $validated['generic_name'] ?? null,
                 'strength' => $validated['strength'] ?? null,
                 'dosage_form' => $validated['dosage_form'] ?? null,
+                'unit_price' => $validated['unit_price'],
                 'stock_quantity' => $validated['initial_stock'],
                 'reorder_level' => $validated['reorder_level'],
                 'is_active' => true,
@@ -111,6 +116,22 @@ class PharmacyController extends Controller
         });
 
         return back()->with('success', 'Medicine added to inventory.');
+    }
+
+    public function updateMedicinePrice(Request $request, int $medicine): RedirectResponse
+    {
+        $validated = $request->validate([
+            'unit_price' => ['required', 'numeric', 'gt:0', 'max:100000000', 'decimal:0,2'],
+        ]);
+        $hospital = Hospital::default();
+
+        Medicine::query()
+            ->where('hospital_id', $hospital->id)
+            ->where('is_active', true)
+            ->findOrFail($medicine)
+            ->update(['unit_price' => $validated['unit_price']]);
+
+        return back()->with('success', 'Medicine price updated.');
     }
 
     public function receiveStock(Request $request, int $medicine): RedirectResponse
@@ -151,20 +172,17 @@ class PharmacyController extends Controller
         ]);
         $hospital = Hospital::default();
 
-        DB::transaction(function () use ($record, $hospital, $validated, $request) {
+        $invoice = DB::transaction(function () use ($record, $hospital, $validated, $request) {
             $medicalRecord = MedicalRecord::query()
                 ->whereNotNull('prescription')
                 ->where('prescription', '!=', '')
                 ->whereHas('patient', fn ($query) => $query->where('hospital_id', $hospital->id))
+                ->with('patient')
                 ->lockForUpdate()
                 ->findOrFail($record);
 
-            $dispensation = PharmacyDispensation::create([
-                'medical_record_id' => $medicalRecord->id,
-                'dispensed_by' => $request->user()->id,
-                'notes' => $validated['notes'] ?? null,
-                'dispensed_at' => now(),
-            ]);
+            $pricedItems = [];
+            $subtotalCents = 0;
 
             foreach ($validated['items'] as $item) {
                 $medicine = Medicine::query()
@@ -179,9 +197,70 @@ class PharmacyController extends Controller
                     ]);
                 }
 
+                $unitPriceCents = (int) round((float) $medicine->unit_price * 100);
+                if ($unitPriceCents <= 0) {
+                    throw ValidationException::withMessages([
+                        'items' => "Set a price greater than zero for {$medicine->name} before dispensing.",
+                    ]);
+                }
+
+                $amountCents = $unitPriceCents * (int) $item['quantity'];
+                $subtotalCents += $amountCents;
+
+                if ($subtotalCents > 999_999_999_999) {
+                    throw ValidationException::withMessages([
+                        'items' => 'The dispensed medicine total exceeds the supported invoice amount.',
+                    ]);
+                }
+
+                $pricedItems[] = [
+                    'medicine' => $medicine,
+                    'quantity' => (int) $item['quantity'],
+                    'unit_price_cents' => $unitPriceCents,
+                    'amount_cents' => $amountCents,
+                ];
+            }
+
+            $dispensation = PharmacyDispensation::create([
+                'medical_record_id' => $medicalRecord->id,
+                'dispensed_by' => $request->user()->id,
+                'notes' => $validated['notes'] ?? null,
+                'dispensed_at' => now(),
+            ]);
+
+            $invoice = Invoice::create([
+                'hospital_id' => $hospital->id,
+                'patient_id' => $medicalRecord->patient_id,
+                'invoice_number' => 'INV-'.now()->format('Ymd').'-'.Str::upper(Str::random(8)),
+                'status' => 'unpaid',
+                'subtotal' => number_format($subtotalCents / 100, 2, '.', ''),
+                'discount' => '0.00',
+                'total' => number_format($subtotalCents / 100, 2, '.', ''),
+                'amount_paid' => '0.00',
+                'notes' => 'Automatically generated for pharmacy dispensing of medical record #'.$medicalRecord->id.'.',
+                'issued_at' => today(),
+            ]);
+
+            foreach ($pricedItems as $item) {
+                $medicine = $item['medicine'];
+                $unitPrice = number_format($item['unit_price_cents'] / 100, 2, '.', '');
+                $amount = number_format($item['amount_cents'] / 100, 2, '.', '');
+                $description = implode(' · ', array_filter([
+                    $medicine->name,
+                    $medicine->strength,
+                    $medicine->dosage_form,
+                ]));
                 $dispensation->items()->create([
                     'medicine_id' => $medicine->id,
                     'quantity' => $item['quantity'],
+                    'unit_price' => $unitPrice,
+                    'amount' => $amount,
+                ]);
+                $invoice->items()->create([
+                    'description' => $description,
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $unitPrice,
+                    'amount' => $amount,
                 ]);
                 $medicine->decrement('stock_quantity', $item['quantity']);
                 $medicine->stockMovements()->create([
@@ -193,8 +272,12 @@ class PharmacyController extends Controller
                     'recorded_at' => now(),
                 ]);
             }
+
+            $dispensation->update(['invoice_id' => $invoice->id]);
+
+            return $invoice;
         });
 
-        return back()->with('success', 'Dispensing recorded and stock updated.');
+        return back()->with('success', "Dispensing recorded, stock updated, and invoice {$invoice->invoice_number} generated.");
     }
 }

@@ -11,10 +11,14 @@ class PharmacyDispensationItem extends Model
         'dispensation_id',
         'medicine_id',
         'quantity',
+        'unit_price',
+        'amount',
     ];
 
     protected $casts = [
         'quantity' => 'integer',
+        'unit_price' => 'decimal:2',
+        'amount' => 'decimal:2',
     ];
 
     public function dispensation(): BelongsTo

@@ -117,6 +117,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware('permission:pharmacy.manage')->prefix('pharmacy')->name('pharmacy.')->group(function () {
         Route::post('/medicines', [PharmacyController::class, 'storeMedicine'])->name('medicines.store');
+        Route::patch('/medicines/{medicine}/price', [PharmacyController::class, 'updateMedicinePrice'])->name('medicines.price');
         Route::post('/medicines/{medicine}/stock', [PharmacyController::class, 'receiveStock'])->name('stock.store');
         Route::post('/prescriptions/{record}/dispense', [PharmacyController::class, 'dispense'])->name('dispense');
     });

@@ -14,6 +14,7 @@ class Medicine extends Model
         'generic_name',
         'strength',
         'dosage_form',
+        'unit_price',
         'stock_quantity',
         'reorder_level',
         'is_active',
@@ -21,6 +22,7 @@ class Medicine extends Model
 
     protected $casts = [
         'stock_quantity' => 'integer',
+        'unit_price' => 'decimal:2',
         'reorder_level' => 'integer',
         'is_active' => 'boolean',
     ];

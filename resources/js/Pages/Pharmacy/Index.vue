@@ -8,6 +8,7 @@ const props = defineProps({
     prescriptions: Object,
     filters: Object,
     summary: Object,
+    currency: String,
     canManage: Boolean,
 });
 
@@ -18,10 +19,13 @@ const medicineForm = useForm({
     generic_name: '',
     strength: '',
     dosage_form: '',
+    unit_price: '',
     initial_stock: 0,
     reorder_level: 10,
 });
 const stockForm = useForm({ medicine_id: '', quantity: '', reference: '' });
+const priceForm = useForm({ unit_price: '' });
+const editingMedicineId = ref(null);
 const dispenseForm = useForm({
     notes: '',
     items: [{ medicine_id: '', quantity: 1 }],
@@ -39,6 +43,14 @@ const remainingAfterDispense = (index) => {
         ? Math.max(0, medicine.stock_quantity - (Number(item.quantity) || 0))
         : null;
 };
+const dispenseTotal = computed(() => dispenseForm.items.reduce((total, item) => {
+    const medicine = medicineStockFor(item.medicine_id);
+    return total + (medicine ? Number(medicine.unit_price) * (Number(item.quantity) || 0) : 0);
+}, 0));
+const formatMoney = (amount) => new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: props.currency || 'USD',
+}).format(Number(amount) || 0);
 const stockLevelPercent = (medicine) => medicine.reorder_level > 0
     ? Math.min(100, Math.round((medicine.stock_quantity / medicine.reorder_level) * 100))
     : medicine.stock_quantity > 0 ? 100 : 0;
@@ -60,6 +72,25 @@ const openStock = (medicine) => {
 const receiveStock = () => stockForm.post(route('pharmacy.stock.store', stockForm.medicine_id), {
     preserveScroll: true,
     onSuccess: () => stockForm.reset(),
+});
+
+const editPrice = (medicine) => {
+    if (editingMedicineId.value === medicine.id) {
+        editingMedicineId.value = null;
+        priceForm.reset();
+        return;
+    }
+
+    editingMedicineId.value = medicine.id;
+    priceForm.unit_price = medicine.unit_price;
+};
+
+const updatePrice = (medicineId) => priceForm.patch(route('pharmacy.medicines.price', medicineId), {
+    preserveScroll: true,
+    onSuccess: () => {
+        editingMedicineId.value = null;
+        priceForm.reset();
+    },
 });
 
 const openDispense = (prescription) => {
@@ -172,6 +203,11 @@ const analyticsCards = computed(() => [
                             <div class="invalid-feedback">{{ medicineForm.errors.dosage_form }}</div>
                         </div>
                         <div class="col-sm-6 col-md-3">
+                            <label for="medicine-unit-price" class="form-label">Price per unit ({{ currency || 'USD' }})</label>
+                            <input id="medicine-unit-price" v-model="medicineForm.unit_price" type="number" min="0.01" step="0.01" class="form-control" :class="{ 'is-invalid': medicineForm.errors.unit_price }" required>
+                            <div class="invalid-feedback">{{ medicineForm.errors.unit_price }}</div>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
                             <label for="medicine-initial-stock" class="form-label">Opening stock (units)</label>
                             <input id="medicine-initial-stock" v-model="medicineForm.initial_stock" type="number" min="0" class="form-control" :class="{ 'is-invalid': medicineForm.errors.initial_stock }" required>
                             <div class="invalid-feedback">{{ medicineForm.errors.initial_stock }}</div>
@@ -181,7 +217,7 @@ const analyticsCards = computed(() => [
                             <input id="medicine-reorder-level" v-model="medicineForm.reorder_level" type="number" min="0" class="form-control" :class="{ 'is-invalid': medicineForm.errors.reorder_level }" required>
                             <div class="invalid-feedback">{{ medicineForm.errors.reorder_level }}</div>
                         </div>
-                        <div class="col-md-6 d-grid">
+                        <div class="col-md-3 d-grid">
                             <button type="submit" class="btn btn-primary" :disabled="medicineForm.processing">
                                 <span v-if="medicineForm.processing" class="spinner-border spinner-border-sm me-1" aria-hidden="true" />
                                 Add medicine
@@ -200,13 +236,24 @@ const analyticsCards = computed(() => [
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead>
-                        <tr><th>Medicine</th><th>Generic name</th><th>Dosage form</th><th>Available stock</th><th>Reorder at</th><th>Status</th><th v-if="canManage" class="text-end">Action</th></tr>
+                        <tr><th>Medicine</th><th>Generic name</th><th>Dosage form</th><th>Unit price</th><th>Available stock</th><th>Reorder at</th><th>Status</th><th v-if="canManage" class="text-end">Action</th></tr>
                     </thead>
                     <tbody>
                         <tr v-for="medicine in medicines.data" :key="medicine.id">
                             <td class="fw-semibold">{{ medicine.name }}<div v-if="medicine.strength" class="small text-muted">{{ medicine.strength }}</div></td>
                             <td>{{ medicine.generic_name || '—' }}</td>
                             <td>{{ medicine.dosage_form || '—' }}</td>
+                            <td>
+                                <form v-if="editingMedicineId === medicine.id" class="d-flex gap-1" @submit.prevent="updatePrice(medicine.id)">
+                                    <input v-model="priceForm.unit_price" type="number" min="0.01" step="0.01" class="form-control form-control-sm" :class="{ 'is-invalid': priceForm.errors.unit_price }" :aria-label="`Price per unit for ${medicine.name}`" required>
+                                    <button type="submit" class="btn btn-sm btn-success" :disabled="priceForm.processing" aria-label="Save medicine price"><i class="bi bi-check-lg" /></button>
+                                    <div v-if="priceForm.errors.unit_price" class="invalid-feedback d-block">{{ priceForm.errors.unit_price }}</div>
+                                </form>
+                                <div v-else class="d-flex align-items-center gap-2">
+                                    <span>{{ formatMoney(medicine.unit_price) }}</span>
+                                    <button v-if="canManage" type="button" class="btn btn-sm btn-link p-0" @click="editPrice(medicine)">Edit</button>
+                                </div>
+                            </td>
                             <td>
                                 <div class="stock-quantity">{{ medicine.stock_quantity }} <span>units</span></div>
                                 <div class="stock-meter" role="progressbar" :aria-valuenow="medicine.stock_quantity" aria-valuemin="0" :aria-valuemax="Math.max(medicine.reorder_level, 1)" :aria-label="`${medicine.name} stock level`">
@@ -226,7 +273,7 @@ const analyticsCards = computed(() => [
                             </td>
                         </tr>
                         <tr v-if="medicines.data.length === 0">
-                            <td :colspan="canManage ? 7 : 6" class="text-center py-4 text-muted">No medicines found.</td>
+                            <td :colspan="canManage ? 8 : 7" class="text-center py-4 text-muted">No medicines found.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -306,7 +353,7 @@ const analyticsCards = computed(() => [
                                 <select :id="`dispense-medicine-${index}`" v-model="item.medicine_id" class="form-select" :class="{ 'is-invalid': dispenseForm.errors[`items.${index}.medicine_id`] }" required>
                                     <option value="" disabled>Select medicine in stock</option>
                                     <option v-for="medicine in medicines.data.filter((entry) => entry.stock_quantity > 0)" :key="medicine.id" :value="medicine.id" :disabled="dispenseForm.items.some((other, otherIndex) => otherIndex !== index && Number(other.medicine_id) === medicine.id)">
-                                        {{ medicineLabel(medicine) }} — {{ medicine.stock_quantity }} in stock
+                                        {{ medicineLabel(medicine) }} — {{ formatMoney(medicine.unit_price) }} per unit · {{ medicine.stock_quantity }} in stock
                                     </option>
                                 </select>
                                 <div class="invalid-feedback">{{ dispenseForm.errors[`items.${index}.medicine_id`] }}</div>
@@ -332,12 +379,21 @@ const analyticsCards = computed(() => [
                                     </div>
                                     <small v-if="remainingAfterDispense(index) === 0" class="text-danger">This dispense will use all available stock.</small>
                                 </div>
+                                <div class="small text-muted mt-1">
+                                    Line total: {{ formatMoney(Number(medicineStockFor(item.medicine_id).unit_price) * (Number(item.quantity) || 0)) }}
+                                </div>
                             </div>
                         </div>
                         <div v-if="dispenseForm.errors.items" class="text-danger small mb-2">{{ dispenseForm.errors.items }}</div>
                         <button type="button" class="btn btn-sm btn-outline-primary mb-3" @click="addDispenseItem">
                             <i class="bi bi-plus-lg me-1"></i> Add another medicine
                         </button>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center rounded bg-light px-3 py-2 fw-semibold">
+                                <span>Invoice total</span>
+                                <span>{{ formatMoney(dispenseTotal) }}</span>
+                            </div>
+                        </div>
                         <div class="mb-3">
                             <label :for="`dispense-notes-${prescription.id}`" class="form-label">Dispensing notes</label>
                             <input :id="`dispense-notes-${prescription.id}`" v-model="dispenseForm.notes" class="form-control" :class="{ 'is-invalid': dispenseForm.errors.notes }" placeholder="Optional notes">
