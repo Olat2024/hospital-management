@@ -4,7 +4,7 @@ set -euo pipefail
 echo "=== [bootstrap] Starting ==="
 cd /var/www/html
 
-required_env=(APP_KEY APP_URL DB_CONNECTION DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD)
+required_env=(APP_KEY APP_URL DATABASE_URL)
 for name in "${required_env[@]}"; do
     if [[ -z "${!name:-}" ]]; then
         echo "FATAL: Required Render environment variable ${name} is not set."
