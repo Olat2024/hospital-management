@@ -16,7 +16,7 @@ export APP_NAME="${APP_NAME:-Hospital Management}"
 export APP_ENV="${APP_ENV:-production}"
 export APP_DEBUG="${APP_DEBUG:-false}"
 export LOG_CHANNEL="${LOG_CHANNEL:-stderr}"
-export SESSION_DRIVER="${SESSION_DRIVER:-database}"
+export SESSION_DRIVER="file"
 export CACHE_STORE="${CACHE_STORE:-file}"
 export SESSION_DRIVER="${SESSION_DRIVER:-file}"
 
