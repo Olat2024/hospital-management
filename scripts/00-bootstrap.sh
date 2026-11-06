@@ -18,6 +18,7 @@ export APP_DEBUG="${APP_DEBUG:-false}"
 export LOG_CHANNEL="${LOG_CHANNEL:-stderr}"
 export SESSION_DRIVER="${SESSION_DRIVER:-database}"
 export CACHE_STORE="${CACHE_STORE:-file}"
+export SESSION_DRIVER="${SESSION_DRIVER:-file}"
 
 rm -f bootstrap/cache/config.php bootstrap/cache/routes-*.php
 
