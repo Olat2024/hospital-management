@@ -6,6 +6,7 @@ use App\Models\Hospital;
 use App\Models\HospitalSetup;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Log;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -27,19 +28,31 @@ class HandleInertiaRequests extends Middleware
      *
      * @return array<string, mixed>
      */
+        /**
+     * Determine which props are always shared with the front-end.
+     *
+     * @return array<string, mixed>
+     */
     public function share(Request $request): array
     {
         $user = $request->user();
-        $activeHospital = Hospital::query()->where('is_active', true)->first();
+        $activeHospital = null;
+        $setup = null;
 
-        // Never firstOrFail here: this middleware runs on every authenticated
-        // request, so a fresh install with no hospital row must not 500.
+        // Wrap all DB queries in a try-catch to prevent 500 errors 
+        // if the database is slow, maxed out on connections, or missing tables.
+        try {
+            $activeHospital = Hospital::query()->where('is_active', true)->first();
+            
+            if ($activeHospital) {
+                $setup = HospitalSetup::query()->where('hospital_id', $activeHospital->id)->first();
+            }
+        } catch (\Throwable $e) {
+            // Log the error for debugging, but don't crash the page
+            Log::warning('Inertia Share DB Query Failed: ' . $e->getMessage());
+        }
+
         $hospital = $user ? $activeHospital : null;
-
-        // Do not create a setup row during public requests just to resolve branding.
-        $setup = $activeHospital
-            ? HospitalSetup::query()->where('hospital_id', $activeHospital->id)->first()
-            : null;
 
         return [
             ...parent::share($request),
