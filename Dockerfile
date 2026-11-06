@@ -45,4 +45,14 @@ ENV LOG_CHANNEL stderr
 RUN echo "clear_env = no" >> /usr/local/etc/php-fpm.d/www.conf
 RUN chmod +x /var/www/html/scripts/00-bootstrap.sh
 
-CMD ["/start.sh"]
+# --- NEW NGINX PORT BINDING LOGIC ---
+# Copy the Nginx config template
+COPY render-nginx.conf /etc/nginx/conf.d/render-nginx.conf.template
+
+# Create a startup script to inject the $PORT variable into the Nginx config
+RUN echo '#!/bin/sh' > /start-render-nginx.sh && \
+    echo 'envsubst "\$PORT" < /etc/nginx/conf.d/render-nginx.conf.template > /etc/nginx/conf.d/default.conf' >> /start-render-nginx.sh && \
+    echo 'exec /start.sh' >> /start-render-nginx.sh && \
+    chmod +x /start-render-nginx.sh
+
+CMD ["/start-render-nginx.sh"]
