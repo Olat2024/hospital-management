@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Hospital;
 use App\Models\Patient;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -18,7 +19,21 @@ class PatientController extends Controller
     {
         $hospitalId = Hospital::default()->id;
 
+        $canManage = $request->user()->can('patients.manage');
         $query = Patient::query()->where('hospital_id', $hospitalId);
+        $query->withExists([
+            'appointments',
+            'medicalRecords',
+            'vitalSigns',
+            'invoices',
+            'admissions',
+            'referrals',
+            'antenatalCards',
+        ]);
+
+        if ($canManage && $request->boolean('include_archived')) {
+            $query->withTrashed();
+        }
 
         $search = trim((string) $request->query('search', ''));
         if ($search !== '') {
@@ -44,9 +59,11 @@ class PatientController extends Controller
             'filters' => [
                 'search' => $search,
                 'gender' => in_array($gender, ['Male', 'Female', 'Other'], true) ? $gender : '',
+                'include_archived' => $canManage && $request->boolean('include_archived'),
             ],
             'can' => [
                 'create' => $request->user()->can('patients.create'),
+                'manage' => $canManage,
             ],
         ]);
     }
@@ -135,6 +152,127 @@ class PatientController extends Controller
             ->with('success', 'Patient registered successfully.');
     }
 
+    public function edit(Request $request, int $patient)
+    {
+        $patient = Patient::query()
+            ->where('hospital_id', Hospital::default()->id)
+            ->findOrFail($patient);
+
+        return Inertia::render('Patients/Edit', [
+            'patient' => $patient,
+            'familyCards' => \App\Models\FamilyCard::query()
+                ->where('hospital_id', $patient->hospital_id)
+                ->orderBy('family_name')
+                ->get(['id', 'card_number', 'family_name']),
+        ]);
+    }
+
+    public function update(Request $request, int $patient)
+    {
+        $patient = Patient::query()
+            ->where('hospital_id', Hospital::default()->id)
+            ->findOrFail($patient);
+
+        $rules = [
+            'first_name' => ['required', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'dob' => ['required', 'date', 'before:today'],
+            'gender' => ['required', 'in:Male,Female,Other'],
+            'blood_group' => ['nullable', 'in:A+,A-,B+,B-,AB+,AB-,O+,O-'],
+            'phone' => ['required', 'string', 'max:20'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'address' => ['required', 'string', 'max:1000'],
+            'allergies' => ['nullable', 'string', 'max:1000'],
+            'emergency_contact_name' => ['nullable', 'string', 'max:255'],
+            'emergency_contact_phone' => ['nullable', 'string', 'max:20'],
+            'insurance_provider' => ['nullable', 'string', 'max:255'],
+            'insurance_number' => ['nullable', 'string', 'max:100'],
+            'family_card_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('family_cards', 'id')->where('hospital_id', $patient->hospital_id),
+            ],
+            'family_relationship' => ['nullable', 'string', 'max:100'],
+        ];
+
+        if (Schema::hasColumn('patients', 'pregnancy_status')) {
+            $rules['pregnancy_status'] = ['nullable', 'string', 'in:Not Pregnant,Pregnant,High Risk Pregnancy,Postpartum'];
+        }
+        if (Schema::hasColumn('patients', 'is_ems_patient')) {
+            $rules['is_ems_patient'] = ['nullable', 'boolean'];
+        }
+        if (Schema::hasColumn('patients', 'pregnancy_notes')) {
+            $rules['pregnancy_notes'] = ['nullable', 'string', 'max:2000'];
+        }
+
+        $validated = $request->validate($rules);
+        $patient->update($validated);
+
+        return redirect()->route('patients.show', $patient)
+            ->with('success', 'Patient record updated successfully.');
+    }
+
+    public function destroy(Request $request, int $patient)
+    {
+        $patient = Patient::query()
+            ->where('hospital_id', Hospital::default()->id)
+            ->findOrFail($patient);
+
+        $archived = DB::transaction(function () use ($patient) {
+            $patient = Patient::query()
+                ->whereKey($patient->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($patient->admissions()->where('status', 'admitted')->exists()) {
+                return false;
+            }
+
+            $hasHistory = $patient->appointments()->exists()
+                || $patient->medicalRecords()->exists()
+                || $patient->vitalSigns()->exists()
+                || $patient->invoices()->exists()
+                || $patient->admissions()->exists()
+                || $patient->referrals()->exists()
+                || $patient->antenatalCards()->exists();
+
+            if ($hasHistory) {
+                $patient->delete();
+
+                return true;
+            }
+
+            $patient->forceDelete();
+
+            return null;
+        });
+
+        if ($archived === false) {
+            return back()->with('error', 'This patient has an active admission and cannot be archived until discharge.');
+        }
+
+        return redirect()->route('patients.index')
+            ->with(
+                'success',
+                $archived
+                    ? 'Patient archived because their clinical or billing history must be preserved. You can restore the record later.'
+                    : 'Empty patient record permanently deleted.',
+            );
+    }
+
+    public function restore(Request $request, int $patient)
+    {
+        $patient = Patient::withTrashed()
+            ->where('hospital_id', Hospital::default()->id)
+            ->findOrFail($patient);
+
+        abort_unless($patient->trashed(), 404);
+        $patient->restore();
+
+        return redirect()->route('patients.index', ['include_archived' => 1])
+            ->with('success', 'Patient record restored successfully.');
+    }
+
     public function show(Request $request, Patient $patient)
     {
         abort_unless($patient->hospital_id === Hospital::default()->id, 404);
@@ -175,12 +313,20 @@ class PatientController extends Controller
 
         return Inertia::render('Patients/Show', [
             'patient' => $patient,
+            'hasClinicalHistory' => $patient->appointments()->exists()
+                || $patient->medicalRecords()->exists()
+                || $patient->vitalSigns()->exists()
+                || $patient->invoices()->exists()
+                || $patient->admissions()->exists()
+                || $patient->referrals()->exists()
+                || $patient->antenatalCards()->exists(),
             'can' => [
                 'viewAppointments' => $canViewAppointments,
                 'viewMedicalRecords' => $canViewMedicalRecords,
                 'viewVitals' => $canViewVitals,
                 'viewAnc' => $canViewAnc,
                 'manageAnc' => $request->user()->can('antenatal.manage'),
+                'managePatient' => $request->user()->can('patients.manage'),
                 'manageVitals' => $request->user()->can('nursing.manage'),
                 'addNote' => $request->user()->can('medical-records.create'),
                 'addReferral' => $request->user()->can('referrals.create'),

@@ -3,6 +3,7 @@
 import { Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { confirmAction } from '@/Composables/useSweetAlert';
 
 const props = defineProps({
     patients: Object,
@@ -12,16 +13,55 @@ const props = defineProps({
 
 const search = ref(props.filters.search);
 const gender = ref(props.filters.gender);
+const includeArchived = ref(props.filters.include_archived || false);
+
+const hasLinkedHistory = (patient) => patient.appointments_exists
+    || patient.medical_records_exists
+    || patient.vital_signs_exists
+    || patient.invoices_exists
+    || patient.admissions_exists
+    || patient.referrals_exists
+    || patient.antenatal_cards_exists;
 
 const applyFilters = (page = 1) => {
     router.get(route('patients.index'), {
         search: search.value,
         gender: gender.value,
+        include_archived: includeArchived.value ? 1 : undefined,
         page: page > 1 ? page : undefined,
     }, {
         preserveState: true,
         replace: true,
     });
+};
+
+const archivePatient = async (patient) => {
+    const hasHistory = hasLinkedHistory(patient);
+
+    const confirmed = await confirmAction({
+        title: `${hasHistory ? 'Archive' : 'Permanently delete'} ${patient.first_name} ${patient.last_name}?`,
+        text: hasHistory
+            ? 'This patient has linked records. The patient will be archived, and their clinical, ANC, and billing history will be preserved.'
+            : 'This patient has no appointments, clinical notes, vitals, admissions, referrals, ANC cards, or invoices. Their record will be permanently deleted and cannot be restored.',
+        confirmButtonText: hasHistory ? 'Archive patient' : 'Permanently delete',
+    });
+
+    if (confirmed) {
+        router.delete(route('patients.destroy', patient.id), { preserveScroll: true });
+    }
+};
+
+const restorePatient = async (patient) => {
+    const confirmed = await confirmAction({
+        title: `Restore ${patient.first_name} ${patient.last_name}?`,
+        text: 'The patient will return to active patient lists.',
+        confirmButtonText: 'Restore patient',
+        icon: 'question',
+    });
+
+    if (confirmed) {
+        router.post(route('patients.restore', patient.id), {}, { preserveScroll: true });
+    }
 };
 
 const age = (dob) => {
@@ -90,6 +130,12 @@ const pageFrom = (url) => {
                             Clear
                         </button>
                     </div>
+                    <div v-if="can.manage" class="col-12">
+                        <div class="form-check">
+                            <input id="include-archived" v-model="includeArchived" type="checkbox" class="form-check-input" @change="applyFilters()">
+                            <label for="include-archived" class="form-check-label">Include archived patients</label>
+                        </div>
+                    </div>
                 </form>
             </div>
         </div>
@@ -110,10 +156,12 @@ const pageFrom = (url) => {
                         <tr v-for="patient in patients.data" :key="patient.id">
                             <td><code>{{ patient.mrn }}</code></td>
                             <td>
-                                <Link :href="route('patients.show', patient.id)" class="text-decoration-none fw-semibold">
+                                <Link v-if="!patient.deleted_at" :href="route('patients.show', patient.id)" class="text-decoration-none fw-semibold">
                                     {{ patient.last_name }}, {{ patient.first_name }}
                                 </Link>
+                                <span v-else class="fw-semibold">{{ patient.last_name }}, {{ patient.first_name }}</span>
                                 <div class="small text-muted" v-if="patient.email">{{ patient.email }}</div>
+                                <span v-if="patient.deleted_at" class="badge bg-secondary mt-1">Archived</span>
                             </td>
                             <td>
                                 <template v-if="age(patient.dob) !== null">
@@ -124,9 +172,23 @@ const pageFrom = (url) => {
                             </td>
                             <td>{{ patient.phone || '—' }}</td>
                             <td class="text-end">
-                                <Link :href="route('patients.show', patient.id)" class="btn btn-sm btn-outline-primary">
-                                    View Chart <i class="bi bi-arrow-right"></i>
-                                </Link>
+                                <div class="d-inline-flex flex-wrap justify-content-end gap-1">
+                                    <Link v-if="!patient.deleted_at" :href="route('patients.show', patient.id)" class="btn btn-sm btn-outline-primary">
+                                        View Chart <i class="bi bi-arrow-right"></i>
+                                    </Link>
+                                    <template v-if="can.manage">
+                                        <Link v-if="!patient.deleted_at" :href="route('patients.edit', patient.id)" class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-pencil"></i> Edit
+                                        </Link>
+                                        <button v-if="!patient.deleted_at" type="button" class="btn btn-sm btn-outline-danger" @click="archivePatient(patient)">
+                                            <i class="bi" :class="hasLinkedHistory(patient) ? 'bi-archive' : 'bi-trash'"></i>
+                                            {{ hasLinkedHistory(patient) ? 'Archive' : 'Delete permanently' }}
+                                        </button>
+                                        <button v-else type="button" class="btn btn-sm btn-outline-success" @click="restorePatient(patient)">
+                                            <i class="bi bi-arrow-counterclockwise"></i> Restore
+                                        </button>
+                                    </template>
+                                </div>
                             </td>
                         </tr>
                         <tr v-if="patients.data.length === 0">

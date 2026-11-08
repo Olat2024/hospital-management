@@ -20,6 +20,7 @@ class AntenatalWorkflowTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutVite();
 
         $this->seed(HospitalTestSeeder::class);
         $this->seed(PermissionSeeder::class);

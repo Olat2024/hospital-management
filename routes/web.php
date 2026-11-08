@@ -58,6 +58,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/patients', [PatientController::class, 'store'])->name('patients.store');
     });
 
+    Route::middleware('permission:patients.manage')->group(function () {
+        Route::get('/patients/{patient}/edit', [PatientController::class, 'edit'])->name('patients.edit');
+        Route::put('/patients/{patient}', [PatientController::class, 'update'])->name('patients.update');
+        Route::delete('/patients/{patient}', [PatientController::class, 'destroy'])->name('patients.destroy');
+        Route::post('/patients/{patient}/restore', [PatientController::class, 'restore'])->name('patients.restore');
+    });
+
     Route::middleware(['permission:family-cards.manage'])->prefix('family-cards')->name('family-cards.')->group(function () {
         Route::get('/', [FamilyCardController::class, 'index'])->name('index');
         Route::get('/create', [FamilyCardController::class, 'create'])->name('create');

@@ -1,13 +1,32 @@
 <!-- resources/js/Pages/Patients/Show.vue -->
 <script setup>
-import { Link, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Link, router, useForm, usePage } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { confirmAction } from '@/Composables/useSweetAlert';
 
+const page = usePage();
 const props = defineProps({
     patient: Object,
+    hasClinicalHistory: Boolean,
     can: Object
 });
+const flash = computed(() => page.props.flash || {});
+
+const archivePatient = async () => {
+    const hasHistory = props.hasClinicalHistory;
+    const confirmed = await confirmAction({
+        title: `${hasHistory ? 'Archive' : 'Permanently delete'} ${props.patient.first_name} ${props.patient.last_name}?`,
+        text: hasHistory
+            ? 'This patient has linked records. The patient will be archived, and their clinical, ANC, and billing history will be preserved.'
+            : 'This patient has no appointments, clinical notes, vitals, admissions, referrals, ANC cards, or invoices. Their record will be permanently deleted and cannot be restored.',
+        confirmButtonText: hasHistory ? 'Archive patient' : 'Permanently delete',
+    });
+
+    if (confirmed) {
+        router.delete(route('patients.destroy', props.patient.id));
+    }
+};
 
 const age = (dob) => {
     if (!dob) return null;
@@ -103,6 +122,12 @@ const discharge = (admission) => dischargeForm.post(route('admissions.discharge'
                 <i class="bi bi-arrow-left me-1"></i> Patient directory
             </Link>
         </header>
+        <div v-if="flash.success" class="alert alert-success" role="status" aria-live="polite">
+            <i class="bi bi-check-circle me-2"></i>{{ flash.success }}
+        </div>
+        <div v-if="flash.error" class="alert alert-danger" role="alert" aria-live="assertive">
+            <i class="bi bi-exclamation-circle me-2"></i>{{ flash.error }}
+        </div>
         <div class="row">
             <div class="col-md-4 mb-4">
                 <div class="card clinical-panel patient-profile-card">
@@ -152,6 +177,15 @@ const discharge = (admission) => dischargeForm.post(route('admissions.discharge'
                             <Link :href="route('appointments.create')" class="btn btn-primary btn-sm">
                                 <i class="bi bi-calendar-plus me-1"></i> Schedule Appointment
                             </Link>
+                        </div>
+                        <div v-if="can.managePatient" class="d-grid gap-2 mt-3">
+                            <Link :href="route('patients.edit', patient.id)" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-pencil me-1"></i> Edit patient record
+                            </Link>
+                            <button type="button" class="btn btn-outline-danger btn-sm" @click="archivePatient">
+                                <i class="bi me-1" :class="hasClinicalHistory ? 'bi-archive' : 'bi-trash'"></i>
+                                {{ hasClinicalHistory ? 'Archive patient' : 'Delete empty patient record' }}
+                            </button>
                         </div>
                     </div>
                 </div>
