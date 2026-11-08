@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdmissionController;
+use App\Http\Controllers\AntenatalController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DoctorController;
@@ -53,8 +54,31 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // ACL: patient registration (Receptionist / Admin)
     Route::middleware(['permission:patients.create'])->group(function () {
         Route::get('/patients/create', [PatientController::class, 'create'])->name('patients.create');
+        Route::get('/patients/create/individual', [PatientController::class, 'createIndividual'])->name('patients.create.individual');
         Route::post('/patients', [PatientController::class, 'store'])->name('patients.store');
     });
+
+    Route::middleware(['permission:family-cards.manage'])->prefix('family-cards')->name('family-cards.')->group(function () {
+        Route::get('/', [FamilyCardController::class, 'index'])->name('index');
+        Route::get('/create', [FamilyCardController::class, 'create'])->name('create');
+        Route::post('/', [FamilyCardController::class, 'storeCard'])->name('store');
+    });
+
+    Route::get('/anc', [AntenatalController::class, 'index'])
+        ->middleware('permission:antenatal.view')
+        ->name('antenatal.index');
+    Route::get('/anc/create', [AntenatalController::class, 'create'])
+        ->middleware('permission:antenatal.manage')
+        ->name('antenatal.create');
+    Route::post('/anc', [AntenatalController::class, 'store'])
+        ->middleware('permission:antenatal.manage')
+        ->name('antenatal.store');
+    Route::get('/anc/{antenatalCard}', [AntenatalController::class, 'show'])
+        ->middleware('permission:antenatal.view')
+        ->name('antenatal.show');
+    Route::post('/anc/{antenatalCard}/visits', [AntenatalController::class, 'storeVisit'])
+        ->middleware('permission:antenatal.manage')
+        ->name('antenatal.visits.store');
 
     // ACL: appointment booking (Receptionist / Admin)
     Route::middleware(['permission:appointments.create'])->group(function () {
@@ -106,6 +130,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/nursing', [NursingController::class, 'index'])
         ->middleware('permission:nursing.view')
         ->name('nursing.index');
+
+    Route::get('/nursing/ems', [NursingController::class, 'ems'])
+        ->middleware('permission:nursing.view')
+        ->name('nursing.ems');
 
     Route::post('/nursing/vitals', [NursingController::class, 'store'])
         ->middleware('permission:nursing.manage')

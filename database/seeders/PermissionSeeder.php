@@ -20,6 +20,7 @@ class PermissionSeeder extends Seeder
     public const MATRIX = [
         'patients' => ['view', 'create', 'manage'],
         'family-cards' => ['manage'],
+        'antenatal' => ['view', 'manage'],
         'appointments' => ['view', 'create', 'manage'],
         'medical-records' => ['view', 'create'],
         'referrals' => ['create'],
@@ -41,6 +42,7 @@ class PermissionSeeder extends Seeder
         'Receptionist' => [
             'patients.view', 'patients.create',
             'family-cards.manage',
+            'antenatal.view', 'antenatal.manage',
             'appointments.view', 'appointments.create',
             'medical-records.view',
             'admissions.view', 'admissions.manage',
@@ -67,6 +69,7 @@ class PermissionSeeder extends Seeder
             'medical-records.view',
             'admissions.view', 'admissions.manage',
             'nursing.view', 'nursing.manage',
+            'antenatal.view', 'antenatal.manage',
         ],
         'Pharmacy' => [
             'patients.view',

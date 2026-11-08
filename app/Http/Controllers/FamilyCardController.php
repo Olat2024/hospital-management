@@ -10,9 +10,54 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class FamilyCardController extends Controller
 {
+    public function index(): Response
+    {
+        $hospital = Hospital::default();
+
+        return Inertia::render('FamilyCards/Index', [
+            'cards' => FamilyCard::query()
+                ->where('hospital_id', $hospital->id)
+                ->with(['patients:id,family_card_id,mrn,first_name,last_name'])
+                ->latest()
+                ->paginate(12)
+                ->withQueryString(),
+        ]);
+    }
+
+    public function create(): Response
+    {
+        return Inertia::render('FamilyCards/Create');
+    }
+
+    public function storeCard(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'family_name' => ['required', 'string', 'max:255'],
+            'contact_name' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'address' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $hospital = Hospital::default();
+
+        do {
+            $cardNumber = 'FC-'.now()->format('ymd').'-'.Str::upper(Str::random(6));
+        } while (FamilyCard::where('card_number', $cardNumber)->exists());
+
+        $familyCard = FamilyCard::create([
+            ...$validated,
+            'hospital_id' => $hospital->id,
+            'card_number' => $cardNumber,
+        ]);
+
+        return redirect()->route('family-cards.index')
+            ->with('success', "Family card {$familyCard->card_number} created successfully.");
+    }
+
     public function store(Request $request, int $patient): RedirectResponse
     {
         $validated = $request->validate([

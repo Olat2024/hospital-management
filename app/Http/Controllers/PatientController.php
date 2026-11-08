@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Hospital;
 use App\Models\Patient;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class PatientController extends Controller
@@ -51,12 +53,30 @@ class PatientController extends Controller
 
     public function create()
     {
-        return Inertia::render('Patients/Create');
+        return Inertia::render('Patients/Create', [
+            'can' => [
+                'createPatient' => request()->user()->can('patients.create'),
+                'manageFamilyCards' => request()->user()->can('family-cards.manage'),
+                'manageAnc' => request()->user()->can('antenatal.manage'),
+            ],
+        ]);
+    }
+
+    public function createIndividual()
+    {
+        $hospital = Hospital::default();
+
+        return Inertia::render('Patients/IndividualCreate', [
+            'familyCards' => \App\Models\FamilyCard::query()
+                ->where('hospital_id', $hospital->id)
+                ->orderBy('family_name')
+                ->get(['id', 'card_number', 'family_name']),
+        ]);
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $rules = [
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'dob' => 'required|date|before:today',
@@ -72,7 +92,19 @@ class PatientController extends Controller
             'emergency_contact_phone' => 'nullable|string|max:20',
             'insurance_provider' => 'nullable|string|max:255',
             'insurance_number' => 'nullable|string|max:100',
-        ]);
+            'family_card_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('family_cards', 'id')->where('hospital_id', Hospital::default()->id),
+            ],
+            'family_relationship' => 'nullable|string|max:100',
+        ];
+
+        if (Schema::hasColumn('patients', 'is_ems_patient')) {
+            $rules['is_ems_patient'] = 'nullable|boolean';
+        }
+
+        $validated = $request->validate($rules);
 
         // The schema stores a single address, so fold the location fields into it.
         $validated['address'] = collect([
@@ -83,10 +115,12 @@ class PatientController extends Controller
 
         unset($validated['city'], $validated['state']);
 
-        $patient = Patient::create($validated + [
+        $patientData = $validated + [
             'hospital_id' => Hospital::default()->id,
             'mrn' => self::nextMrn(),
-        ]);
+        ];
+
+        $patient = Patient::create($patientData);
 
         return redirect()->route('patients.show', $patient)
             ->with('success', 'Patient registered successfully.');
@@ -99,6 +133,7 @@ class PatientController extends Controller
         $canViewAppointments = $request->user()->can('appointments.view');
         $canViewMedicalRecords = $request->user()->can('medical-records.view');
         $canViewVitals = $request->user()->can('nursing.view');
+        $canViewAnc = $request->user()->can('antenatal.view');
         $relations = [];
 
         if ($canViewAppointments) {
@@ -123,6 +158,9 @@ class PatientController extends Controller
                 ->orderByDesc('recorded_at')
                 ->with('recorder:id,name');
         }
+        if ($canViewAnc) {
+            $relations['antenatalCards'] = fn ($query) => $query->orderByDesc('booking_date');
+        }
 
         $patient->load($relations);
 
@@ -132,6 +170,8 @@ class PatientController extends Controller
                 'viewAppointments' => $canViewAppointments,
                 'viewMedicalRecords' => $canViewMedicalRecords,
                 'viewVitals' => $canViewVitals,
+                'viewAnc' => $canViewAnc,
+                'manageAnc' => $request->user()->can('antenatal.manage'),
                 'manageVitals' => $request->user()->can('nursing.manage'),
                 'addNote' => $request->user()->can('medical-records.create'),
                 'addReferral' => $request->user()->can('referrals.create'),

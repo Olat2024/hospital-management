@@ -108,6 +108,18 @@ const initials = computed(() => {
                     </Link>
                 </li>
 
+                <li class="nav-item" v-if="hasPermission('antenatal.view')">
+                    <Link :href="route('antenatal.index')" class="nav-link text-white p-2" :title="isSidebarCollapsed ? 'ANC Cards' : undefined" :class="{ 'bg-primary rounded': $page.url.startsWith('/anc') }">
+                        <i class="bi bi-person-vcard me-2"></i><span class="sidebar-label">ANC Cards</span>
+                    </Link>
+                </li>
+
+                <li class="nav-item" v-if="hasPermission('family-cards.manage')">
+                    <Link :href="route('family-cards.index')" class="nav-link text-white p-2" :title="isSidebarCollapsed ? 'Family Cards' : undefined" :class="{ 'bg-primary rounded': $page.url.startsWith('/family-cards') }">
+                        <i class="bi bi-people me-2"></i><span class="sidebar-label">Family Cards</span>
+                    </Link>
+                </li>
+
                 <li class="nav-item" v-if="hasPermission('admissions.view')">
                     <Link :href="route('admissions.index')" class="nav-link text-white p-2" :title="isSidebarCollapsed ? 'Admissions' : undefined" :class="{ 'bg-primary rounded': $page.url.startsWith('/admissions') }">
                         <i class="bi bi-hospital me-2"></i><span class="sidebar-label">Admissions</span>

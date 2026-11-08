@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Patient;
+use App\Models\FamilyCard;
+use App\Models\Hospital;
 use App\Models\User;
 use Database\Seeders\HospitalTestSeeder;
 use Database\Seeders\PermissionSeeder;
@@ -35,6 +37,17 @@ class PatientRegistrationTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->component('Patients/Create'));
     }
 
+    public function test_receptionist_can_open_individual_patient_registration(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('Receptionist');
+
+        $this->actingAs($user)
+            ->get(route('patients.create.individual'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Patients/IndividualCreate'));
+    }
+
     public function test_patient_can_be_registered(): void
     {
         $user = User::factory()->create();
@@ -63,6 +76,34 @@ class PatientRegistrationTest extends TestCase
         $this->assertNotNull($patient->hospital_id, 'A patient must belong to a hospital.');
         $this->assertNotNull($patient->mrn, 'A patient must be given an MRN.');
         $this->assertSame('May 5, 1990', $patient->dob_display);
+    }
+
+    public function test_individual_patient_can_be_linked_to_a_separately_created_family_card(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('Receptionist');
+        $familyCard = FamilyCard::create([
+            'hospital_id' => Hospital::default()->id,
+            'card_number' => 'FC-TEST-0001',
+            'family_name' => 'Smith',
+        ]);
+
+        $this->actingAs($user)->post(route('patients.store'), [
+            'first_name' => 'Janet',
+            'last_name' => 'Smith',
+            'dob' => '1990-05-05',
+            'gender' => 'Female',
+            'phone' => '08099998888',
+            'address' => '5 Market Road',
+            'city' => 'Abeokuta',
+            'state' => 'Ogun State',
+            'family_card_id' => $familyCard->id,
+            'family_relationship' => 'Daughter',
+        ]);
+
+        $patient = Patient::firstOrFail();
+        $this->assertSame($familyCard->id, $patient->family_card_id);
+        $this->assertSame('Daughter', $patient->family_relationship);
     }
 
     public function test_dob_and_gender_are_required(): void

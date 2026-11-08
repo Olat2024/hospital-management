@@ -141,6 +141,13 @@ const discharge = (admission) => dischargeForm.post(route('admissions.discharge'
                             <span v-if="patient.insurance_number"> &middot; <code>{{ patient.insurance_number }}</code></span>
                         </p>
 
+                        <div v-if="patient.pregnancy_status || patient.is_ems_patient || patient.pregnancy_notes">
+                            <h3 class="patient-section-title mt-4">Pregnancy / EMS</h3>
+                            <p class="mb-1" v-if="patient.pregnancy_status"><strong>Status:</strong> {{ patient.pregnancy_status }}</p>
+                            <p class="mb-1" v-if="patient.is_ems_patient"><span class="badge bg-warning text-dark">EMS flagged</span></p>
+                            <p class="mb-0" v-if="patient.pregnancy_notes">{{ patient.pregnancy_notes }}</p>
+                        </div>
+
                         <div class="d-grid gap-2 mt-4" v-if="can.bookAppointment">
                             <Link :href="route('appointments.create')" class="btn btn-primary btn-sm">
                                 <i class="bi bi-calendar-plus me-1"></i> Schedule Appointment
@@ -213,6 +220,30 @@ const discharge = (admission) => dischargeForm.post(route('admissions.discharge'
                         </form>
                     </div>
                     <div v-else class="card-body text-muted small">No family card linked.</div>
+                </div>
+
+                <div v-if="can.viewAnc" class="card clinical-panel mt-4">
+                    <div class="card-header">
+                        <h2>ANC cards</h2>
+                        <Link v-if="can.manageAnc" :href="route('antenatal.create')" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-plus-lg me-1"></i> New ANC card
+                        </Link>
+                    </div>
+                    <div v-if="patient.antenatal_cards?.length" class="list-group list-group-flush">
+                        <Link
+                            v-for="card in patient.antenatal_cards"
+                            :key="card.id"
+                            :href="route('antenatal.show', card.id)"
+                            class="list-group-item list-group-item-action"
+                        >
+                            <div class="d-flex justify-content-between gap-2">
+                                <span class="fw-semibold">ANC card</span>
+                                <span class="small text-muted">{{ card.booking_date ? formatDate(card.booking_date) : 'Date not recorded' }}</span>
+                            </div>
+                            <div class="small text-muted">{{ card.pregnancy_duration_at_booking || 'Pregnancy duration not recorded' }}</div>
+                        </Link>
+                    </div>
+                    <div v-else class="card-body text-muted small">No ANC cards linked to this patient.</div>
                 </div>
             </div>
 

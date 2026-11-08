@@ -12,6 +12,7 @@ const props = defineProps({
 });
 
 const search = ref(props.filters.search || '');
+const statusFilter = ref(props.filters.status || 'all');
 const selectedPatient = ref(null);
 const showVitalsForm = ref(false);
 
@@ -51,6 +52,20 @@ const summaryCards = [
         tone: 'nursing-card-violet',
         detail: 'Unique patients today',
     },
+    {
+        label: 'Pregnant women',
+        value: props.summary.pregnantPatients ?? 0,
+        icon: 'bi-gender-female',
+        tone: 'nursing-card-pink',
+        detail: 'Maternal care cases',
+    },
+    {
+        label: 'EMS flagged',
+        value: props.summary.emsPatients ?? 0,
+        icon: 'bi-ambulance',
+        tone: 'nursing-card-amber',
+        detail: 'Emergency support cases',
+    },
 ];
 
 const formatDate = (value) => value
@@ -70,7 +85,13 @@ const bloodPressure = (vital) => {
 
 const applySearch = () => router.get(route('nursing.index'), {
     search: search.value || undefined,
+    status: statusFilter.value === 'all' ? undefined : statusFilter.value,
 }, { preserveState: true, preserveScroll: true, replace: true });
+
+const setStatusFilter = (value) => {
+    statusFilter.value = value;
+    applySearch();
+};
 
 const openVitalsForm = (patient) => {
     form.reset();
@@ -135,18 +156,30 @@ watch(
                         <h2>Patient observations</h2>
                         <p class="small text-muted mb-0">Search patients and review their latest recorded readings.</p>
                     </div>
-                    <form class="nursing-search" @submit.prevent="applySearch">
-                        <label for="nursing-search" class="visually-hidden">Search patients</label>
-                        <input
-                            id="nursing-search"
-                            v-model="search"
-                            class="form-control"
-                            placeholder="Search name, MRN, or phone"
-                        >
-                        <button class="btn btn-outline-primary" type="submit" aria-label="Search">
-                            <i class="bi bi-search"></i>
-                        </button>
-                    </form>
+                    <div class="d-flex gap-2 align-items-center">
+                        <Link :href="route('nursing.ems')" class="btn btn-outline-warning btn-sm">
+                            <i class="bi bi-ambulance me-1"></i>
+                            EMS cases
+                        </Link>
+                        <form class="nursing-search" @submit.prevent="applySearch">
+                            <label for="nursing-search" class="visually-hidden">Search patients</label>
+                            <input
+                                id="nursing-search"
+                                v-model="search"
+                                class="form-control"
+                                placeholder="Search name, MRN, or phone"
+                            >
+                            <button class="btn btn-outline-primary" type="submit" aria-label="Search">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 px-3 pb-3">
+                    <button type="button" class="btn btn-sm" :class="statusFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'" @click="setStatusFilter('all')">All</button>
+                    <button type="button" class="btn btn-sm" :class="statusFilter === 'pregnant' ? 'btn-primary' : 'btn-outline-secondary'" @click="setStatusFilter('pregnant')">Pregnant / Maternal</button>
+                    <button type="button" class="btn btn-sm" :class="statusFilter === 'ems' ? 'btn-primary' : 'btn-outline-secondary'" @click="setStatusFilter('ems')">EMS flagged</button>
                 </div>
 
                 <div class="table-responsive">
@@ -169,6 +202,10 @@ watch(
                                         {{ patient.first_name }} {{ patient.last_name }}
                                     </Link>
                                     <div class="small text-muted">{{ patient.mrn }}</div>
+                                    <div class="mt-1 d-flex flex-wrap gap-1">
+                                        <span v-if="patient.pregnancy_status" class="badge bg-pink-subtle text-danger">{{ patient.pregnancy_status }}</span>
+                                        <span v-if="patient.is_ems_patient" class="badge bg-warning text-dark">EMS</span>
+                                    </div>
                                 </td>
                                 <td>{{ bloodPressure(patient.latest_vital_sign) }}</td>
                                 <td>{{ patient.latest_vital_sign?.pulse_rate ? `${patient.latest_vital_sign.pulse_rate} bpm` : '—' }}</td>

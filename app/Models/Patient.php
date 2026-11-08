@@ -27,10 +27,14 @@ class Patient extends Model
         'emergency_contact_phone',
         'insurance_provider',
         'insurance_number',
+        'pregnancy_status',
+        'is_ems_patient',
+        'pregnancy_notes',
     ];
 
     protected $casts = [
         'dob' => 'date',
+        'is_ems_patient' => 'boolean',
     ];
 
     protected $appends = [
@@ -85,5 +89,10 @@ class Patient extends Model
     public function referrals(): HasMany
     {
         return $this->hasMany(Referral::class)->latest('referred_at');
+    }
+
+    public function antenatalCards(): HasMany
+    {
+        return $this->hasMany(AntenatalCard::class)->latest('booking_date');
     }
 }
