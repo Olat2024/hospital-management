@@ -2,8 +2,9 @@
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
-defineProps({
+const props = defineProps({
     familyCards: Array,
+    selectedFamilyCard: Object,
 });
 
 const form = useForm({
@@ -22,7 +23,7 @@ const form = useForm({
     emergency_contact_phone: '',
     insurance_provider: '',
     insurance_number: '',
-    family_card_id: '',
+    family_card_id: props.selectedFamilyCard?.id || '',
     family_relationship: '',
     is_ems_patient: false,
 });
@@ -52,6 +53,13 @@ const submit = () => form.post(route('patients.store'));
                         </div>
                         <div class="card-body">
                             <form @submit.prevent="submit">
+                                <div v-if="selectedFamilyCard" class="alert alert-info d-flex align-items-start gap-2" role="status">
+                                    <i class="bi bi-people-fill mt-1"></i>
+                                    <div>
+                                        This patient will be added to <strong>{{ selectedFamilyCard.family_name }}</strong>
+                                        family card (<code>{{ selectedFamilyCard.card_number }}</code>).
+                                    </div>
+                                </div>
                                 <h3 class="h6 text-uppercase text-muted fw-bold mb-3">Personal details</h3>
                                 <div class="row g-3 mb-3">
                                     <div class="col-md-6">
@@ -146,14 +154,15 @@ const submit = () => form.post(route('patients.store'));
                                         <div class="invalid-feedback">{{ form.errors.insurance_number }}</div>
                                     </div>
                                     <div class="col-md-8">
-                                        <label for="family_card_id" class="form-label">Family card <span class="text-muted">(optional)</span></label>
+                                        <label for="family_card_id" class="form-label">Add patient to family card <span class="text-muted">(optional)</span></label>
                                         <select id="family_card_id" v-model="form.family_card_id" class="form-select" :class="{ 'is-invalid': form.errors.family_card_id }">
-                                            <option value="">No family card</option>
+                                            <option value="">Do not add to a family card</option>
                                             <option v-for="card in familyCards" :key="card.id" :value="card.id">
                                                 {{ card.card_number }} — {{ card.family_name }}
                                             </option>
                                         </select>
                                         <div class="invalid-feedback">{{ form.errors.family_card_id }}</div>
+                                        <div class="form-text">Choose a family card here, or use “Add patient” from the family-card list to preselect one.</div>
                                     </div>
                                     <div class="col-md-4">
                                         <label for="family_relationship" class="form-label">Relationship to family</label>

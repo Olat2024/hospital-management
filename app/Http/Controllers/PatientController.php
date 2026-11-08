@@ -62,15 +62,24 @@ class PatientController extends Controller
         ]);
     }
 
-    public function createIndividual()
+    public function createIndividual(Request $request)
     {
         $hospital = Hospital::default();
+        $selectedFamilyCard = null;
+        $familyCardId = $request->query('family_card_id');
+
+        if ($familyCardId !== null) {
+            $selectedFamilyCard = \App\Models\FamilyCard::query()
+                ->where('hospital_id', $hospital->id)
+                ->findOrFail($familyCardId);
+        }
 
         return Inertia::render('Patients/IndividualCreate', [
             'familyCards' => \App\Models\FamilyCard::query()
                 ->where('hospital_id', $hospital->id)
                 ->orderBy('family_name')
                 ->get(['id', 'card_number', 'family_name']),
+            'selectedFamilyCard' => $selectedFamilyCard,
         ]);
     }
 

@@ -19,6 +19,7 @@ class PatientRegistrationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutVite();
 
         // Routes are guarded by `permission:` middleware, so the ACL matrix
         // must exist in the in-memory database.
@@ -41,11 +42,19 @@ class PatientRegistrationTest extends TestCase
     {
         $user = User::factory()->create();
         $user->assignRole('Receptionist');
+        $familyCard = FamilyCard::create([
+            'hospital_id' => Hospital::default()->id,
+            'card_number' => 'FC-TEST-OPEN',
+            'family_name' => 'Smith Family',
+        ]);
 
         $this->actingAs($user)
-            ->get(route('patients.create.individual'))
+            ->get(route('patients.create.individual', ['family_card_id' => $familyCard->id]))
             ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->component('Patients/IndividualCreate'));
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Patients/IndividualCreate')
+                ->has('selectedFamilyCard')
+                ->where('selectedFamilyCard.family_name', 'Smith Family'));
     }
 
     public function test_patient_can_be_registered(): void

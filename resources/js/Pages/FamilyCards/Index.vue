@@ -31,6 +31,7 @@ defineProps({
                                 <th>Primary contact</th>
                                 <th>Phone</th>
                                 <th>Members</th>
+                                <th class="text-end">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -52,9 +53,17 @@ defineProps({
                                     </div>
                                     <span v-else class="text-muted">No patients linked yet</span>
                                 </td>
+                                <td class="text-end">
+                                    <Link
+                                        :href="route('patients.create.individual', { family_card_id: card.id })"
+                                        class="btn btn-sm btn-outline-primary text-nowrap"
+                                    >
+                                        <i class="bi bi-person-plus me-1"></i> Add patient
+                                    </Link>
+                                </td>
                             </tr>
                             <tr v-if="!cards.data.length">
-                                <td colspan="5" class="text-center text-muted py-4">No family cards have been registered.</td>
+                                <td colspan="6" class="text-center text-muted py-4">No family cards have been registered.</td>
                             </tr>
                         </tbody>
                     </table>
