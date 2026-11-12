@@ -1,7 +1,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useForm } from '@inertiajs/vue3';
-import { reactive, computed } from 'vue';
+import { reactive } from 'vue';
 import { confirmAction } from '@/Composables/useSweetAlert';
 
 const props = defineProps({
@@ -9,10 +9,6 @@ const props = defineProps({
     permissionGroups: { type: Array, required: true },
     permissionCount: { type: Number, default: 0 },
 });
-
-const allPermissionIds = computed(() =>
-    props.permissionGroups.flatMap((group) => group.permissions.map((p) => p.id))
-);
 
 // One editable form per role, pre-filled with its current permissions.
 const forms = reactive({});
@@ -149,8 +145,26 @@ const storePermission = () => {
                                 <div class="small text-muted fw-normal">
                                     {{ role.users_count }} user{{ role.users_count === 1 ? '' : 's' }}
                                 </div>
+                                <button
+                                    v-if="!isAdminRole(role)"
+                                    class="btn btn-sm btn-primary mt-2"
+                                    :disabled="forms[role.id].processing || !forms[role.id].isDirty"
+                                    @click="save(role.id)"
+                                >
+                                    <span
+                                        v-if="forms[role.id].processing"
+                                        class="spinner-border spinner-border-sm me-1"
+                                        role="status"
+                                    ></span>
+                                    Update permissions
+                                    <span class="badge bg-light text-primary ms-1">
+                                        {{ checkedCount(role.id) }}
+                                    </span>
+                                </button>
+                                <div v-else class="small text-muted mt-2">
+                                    Full access
+                                </div>
                             </th>
-                            <th class="text-center" style="width: 110px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -180,7 +194,6 @@ const storePermission = () => {
                                         >
                                     </div>
                                 </td>
-                                <td></td>
                             </tr>
 
                             <tr v-for="permission in group.permissions" :key="permission.id">
@@ -205,34 +218,10 @@ const storePermission = () => {
                                         >
                                     </div>
                                 </td>
-                                <td class="text-center text-muted small">—</td>
                             </tr>
                         </template>
                     </tbody>
                 </table>
-            </div>
-            <div class="card-footer bg-white d-flex flex-wrap gap-2">
-                <template v-for="role in roles" :key="'save' + role.id">
-                    <button
-                        v-if="!isAdminRole(role)"
-                        class="btn btn-sm btn-primary"
-                        :disabled="forms[role.id].processing"
-                        @click="save(role.id)"
-                    >
-                        <span
-                            v-if="forms[role.id].processing"
-                            class="spinner-border spinner-border-sm me-1"
-                            role="status"
-                        ></span>
-                        Save {{ role.name }}
-                        <span class="badge bg-light text-primary ms-1">
-                            {{ checkedCount(role.id) }}
-                        </span>
-                    </button>
-                    <span v-else class="badge bg-secondary align-self-center">
-                        {{ role.name }} always has full access
-                    </span>
-                </template>
             </div>
         </div>
 
