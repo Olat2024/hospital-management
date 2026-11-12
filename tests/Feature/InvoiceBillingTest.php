@@ -55,6 +55,7 @@ class InvoiceBillingTest extends TestCase
             'issued_at' => today()->toDateString(),
             'due_at' => today()->addDays(14)->toDateString(),
             'discount' => '5.00',
+            'treatment_bill_amount' => '30.00',
             'notes' => 'Please bring the insurance card.',
             'items' => [
                 ['description' => 'Consultation', 'quantity' => 1, 'unit_price' => '50.00'],
@@ -67,12 +68,40 @@ class InvoiceBillingTest extends TestCase
             ->assertSessionHas('success');
 
         $this->assertSame($this->patient->hospital_id, $invoice->hospital_id);
-        $this->assertSame('75.00', $invoice->subtotal);
+        $this->assertSame('105.00', $invoice->subtotal);
         $this->assertSame('5.00', $invoice->discount);
-        $this->assertSame('70.00', $invoice->total);
+        $this->assertSame('100.00', $invoice->total);
         $this->assertSame('unpaid', $invoice->status);
-        $this->assertCount(2, $invoice->items);
-        $this->assertSame('25.00', $invoice->items->last()->amount);
+        $this->assertCount(3, $invoice->items);
+        $this->assertSame('25.00', $invoice->items[1]->amount);
+        $this->assertDatabaseHas('invoice_items', [
+            'invoice_id' => $invoice->id,
+            'description' => 'Medical treatment bill',
+            'quantity' => 1,
+            'unit_price' => '30.00',
+            'amount' => '30.00',
+        ]);
+    }
+
+    public function test_invoice_can_be_created_with_only_a_medical_treatment_bill(): void
+    {
+        $this->actingAs($this->receptionist)
+            ->post(route('billing.store'), [
+                'patient_id' => $this->patient->id,
+                'issued_at' => today()->toDateString(),
+                'treatment_bill_amount' => '250.00',
+                'items' => [],
+            ])
+            ->assertRedirect();
+
+        $invoice = Invoice::firstOrFail();
+        $this->assertSame('250.00', $invoice->subtotal);
+        $this->assertSame('250.00', $invoice->total);
+        $this->assertDatabaseHas('invoice_items', [
+            'invoice_id' => $invoice->id,
+            'description' => 'Medical treatment bill',
+            'amount' => '250.00',
+        ]);
     }
 
     public function test_invoice_discount_cannot_exceed_the_subtotal(): void

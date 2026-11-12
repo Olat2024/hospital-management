@@ -275,7 +275,8 @@ class PatientController extends Controller
 
     public function show(Request $request, Patient $patient)
     {
-        abort_unless($patient->hospital_id === Hospital::default()->id, 404);
+        $hospital = Hospital::default();
+        abort_unless($patient->hospital_id === $hospital->id, 404);
 
         $canViewAppointments = $request->user()->can('appointments.view');
         $canViewMedicalRecords = $request->user()->can('medical-records.view');
@@ -313,6 +314,7 @@ class PatientController extends Controller
 
         return Inertia::render('Patients/Show', [
             'patient' => $patient,
+            'hospitalTimezone' => $hospital->timezone ?: config('app.timezone'),
             'hasClinicalHistory' => $patient->appointments()->exists()
                 || $patient->medicalRecords()->exists()
                 || $patient->vitalSigns()->exists()

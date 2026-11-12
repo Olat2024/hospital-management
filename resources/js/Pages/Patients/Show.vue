@@ -8,6 +8,7 @@ import { confirmAction } from '@/Composables/useSweetAlert';
 const page = usePage();
 const props = defineProps({
     patient: Object,
+    hospitalTimezone: { type: String, required: true },
     hasClinicalHistory: Boolean,
     can: Object
 });
@@ -42,10 +43,22 @@ const statusBadge = {
 
 const formatDate = (value) =>
     new Date(value).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-const localDateTime = () => {
+const localDateTime = (timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone) => {
     const date = new Date();
-    date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-    return date.toISOString().slice(0, 16);
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+    }).formatToParts(date).reduce((values, part) => {
+        values[part.type] = part.value;
+        return values;
+    }, {});
+
+    return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
 };
 
 // ---- Add clinical note ----
@@ -95,7 +108,7 @@ const submitReferral = () => referralForm.post(route('patients.referrals.store',
 const admissionForm = useForm({
     reason: '',
     notes: '',
-    admitted_at: localDateTime(),
+    admitted_at: localDateTime(props.hospitalTimezone),
 });
 const submitAdmission = () => admissionForm.post(route('patients.admissions.store', props.patient.id), {
     preserveScroll: true,

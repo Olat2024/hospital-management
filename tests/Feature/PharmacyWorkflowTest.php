@@ -208,6 +208,32 @@ class PharmacyWorkflowTest extends TestCase
         $this->assertSame('19.99', $medicine->fresh()->unit_price);
     }
 
+    public function test_pharmacist_can_edit_medicine_details_without_changing_stock(): void
+    {
+        $medicine = $this->medicine($this->patient->hospital_id, 5);
+
+        $this->actingAs($this->pharmacist)
+            ->patch(route('pharmacy.medicines.update', $medicine), [
+                'name' => 'Updated medicine',
+                'generic_name' => 'Updated generic',
+                'strength' => '250 mg',
+                'dosage_form' => 'Tablet',
+                'unit_price' => '19.99',
+                'reorder_level' => 8,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $medicine->refresh();
+        $this->assertSame('Updated medicine', $medicine->name);
+        $this->assertSame('Updated generic', $medicine->generic_name);
+        $this->assertSame('250 mg', $medicine->strength);
+        $this->assertSame('Tablet', $medicine->dosage_form);
+        $this->assertSame('19.99', $medicine->unit_price);
+        $this->assertSame(8, $medicine->reorder_level);
+        $this->assertSame(5, $medicine->stock_quantity);
+    }
+
     public function test_pharmacy_role_receives_its_attached_permissions_when_logged_in(): void
     {
         $this->actingAs($this->pharmacist)

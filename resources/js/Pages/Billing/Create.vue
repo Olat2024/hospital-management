@@ -13,13 +13,14 @@ const form = useForm({
     issued_at: new Date().toISOString().slice(0, 10),
     due_at: '',
     discount: '0.00',
+    treatment_bill_amount: '0.00',
     notes: '',
     items: [{ description: '', quantity: 1, unit_price: '0.00' }],
 });
 
 const subtotal = computed(() => form.items.reduce(
     (total, item) => total + (Number(item.quantity) || 0) * (Number(item.unit_price) || 0),
-    0,
+    Number(form.treatment_bill_amount) || 0,
 ));
 const total = computed(() => Math.max(0, subtotal.value - (Number(form.discount) || 0)));
 const currencyFormat = new Intl.NumberFormat(undefined, {
@@ -32,7 +33,10 @@ const addItem = () => form.items.push({ description: '', quantity: 1, unit_price
 const removeItem = (index) => {
     if (form.items.length > 1) form.items.splice(index, 1);
 };
-const submit = () => form.post(route('billing.store'));
+const submit = () => form.transform((data) => ({
+    ...data,
+    items: data.items.filter((item) => item.description.trim() !== '' || Number(item.unit_price) > 0),
+})).post(route('billing.store'));
 </script>
 
 <template>
@@ -90,6 +94,14 @@ const submit = () => form.post(route('billing.store'));
                     </button>
                 </div>
                 <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6 col-lg-5">
+                            <label for="treatment-bill" class="form-label">Medical treatment bill ({{ currency }})</label>
+                            <input id="treatment-bill" v-model="form.treatment_bill_amount" type="number" min="0" step="0.01" class="form-control" :class="{ 'is-invalid': form.errors.treatment_bill_amount }">
+                            <div class="invalid-feedback">{{ form.errors.treatment_bill_amount }}</div>
+                            <div class="form-text">This charge is added as a separate line on the invoice.</div>
+                        </div>
+                    </div>
                     <div v-for="(item, index) in form.items" :key="index" class="row g-2 align-items-start mb-3">
                         <div class="col-md-6">
                             <label :for="`description-${index}`" class="form-label">Description</label>

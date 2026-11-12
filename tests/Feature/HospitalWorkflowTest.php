@@ -9,6 +9,7 @@ use App\Models\Patient;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class HospitalWorkflowTest extends TestCase
@@ -219,6 +220,37 @@ class HospitalWorkflowTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->has('patient.admissions', 1)
                 ->where('patient.admissions.0.status', 'discharged'));
+    }
+
+    public function test_admission_accepts_current_hospital_time_and_rejects_future_time(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-12 12:00:00', 'UTC'));
+
+        try {
+            $this->hospital->update(['timezone' => 'Africa/Lagos']);
+            $patient = $this->makePatient();
+
+            $this->actingAs($this->doctorUser)
+                ->post(route('patients.admissions.store', $patient), [
+                    'reason' => 'Requires immediate observation',
+                    'admitted_at' => '2026-11-12T13:00',
+                ])
+                ->assertRedirect()
+                ->assertSessionHas('success');
+
+            $admission = $patient->admissions()->firstOrFail();
+            $this->assertSame('2026-11-12 12:00:00', $admission->admitted_at->utc()->toDateTimeString());
+
+            $futurePatient = $this->makePatient(['mrn' => 'MRN-FUTURE-00001']);
+            $this->actingAs($this->doctorUser)
+                ->post(route('patients.admissions.store', $futurePatient), [
+                    'reason' => 'Future admission',
+                    'admitted_at' => '2026-11-12T14:00',
+                ])
+                ->assertSessionHasErrors('admitted_at');
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_patient_chart_and_prescription_creation_are_scoped_to_the_hospital(): void

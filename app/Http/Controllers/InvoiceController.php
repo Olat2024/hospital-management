@@ -196,14 +196,31 @@ class InvoiceController extends Controller
             'issued_at' => ['required', 'date'],
             'due_at' => ['nullable', 'date', 'after_or_equal:issued_at'],
             'discount' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'treatment_bill_amount' => ['nullable', 'numeric', 'min:0', 'max:10000000000', 'decimal:0,2'],
             'notes' => ['nullable', 'string', 'max:2000'],
-            'items' => ['required', 'array', 'min:1', 'max:50'],
+            'items' => ['nullable', 'array', 'max:50'],
             'items.*.description' => ['required', 'string', 'max:255'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:100000'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0.01', 'max:100000000', 'decimal:0,2'],
         ]);
 
-        $subtotalCents = collect($validated['items'])
+        $items = $validated['items'] ?? [];
+        $treatmentBillCents = self::toCents($validated['treatment_bill_amount'] ?? '0');
+        if ($treatmentBillCents > 0) {
+            $items[] = [
+                'description' => 'Medical treatment bill',
+                'quantity' => 1,
+                'unit_price' => self::fromCents($treatmentBillCents),
+            ];
+        }
+
+        if ($items === []) {
+            throw ValidationException::withMessages([
+                'items' => 'Add at least one invoice item or enter a medical treatment bill.',
+            ]);
+        }
+
+        $subtotalCents = collect($items)
             ->sum(fn ($item) => self::toCents($item['unit_price']) * (int) $item['quantity']);
         $discountCents = self::toCents($validated['discount'] ?? '0');
         $totalCents = $subtotalCents - $discountCents;
@@ -226,7 +243,7 @@ class InvoiceController extends Controller
             ]);
         }
 
-        $invoice = DB::transaction(function () use ($validated, $hospital, $subtotalCents, $discountCents, $totalCents) {
+        $invoice = DB::transaction(function () use ($validated, $items, $hospital, $subtotalCents, $discountCents, $totalCents) {
             $invoice = Invoice::create([
                 'hospital_id' => $hospital->id,
                 'patient_id' => $validated['patient_id'],
@@ -241,7 +258,7 @@ class InvoiceController extends Controller
                 'due_at' => $validated['due_at'] ?? null,
             ]);
 
-            foreach ($validated['items'] as $item) {
+            foreach ($items as $item) {
                 $amountCents = self::toCents($item['unit_price']) * (int) $item['quantity'];
                 $invoice->items()->create([
                     'description' => $item['description'],

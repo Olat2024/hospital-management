@@ -24,8 +24,15 @@ const medicineForm = useForm({
     reorder_level: 10,
 });
 const stockForm = useForm({ medicine_id: '', quantity: '', reference: '' });
-const priceForm = useForm({ unit_price: '' });
 const editingMedicineId = ref(null);
+const editMedicineForm = useForm({
+    name: '',
+    generic_name: '',
+    strength: '',
+    dosage_form: '',
+    unit_price: '',
+    reorder_level: 0,
+});
 const dispenseForm = useForm({
     notes: '',
     items: [{ medicine_id: '', quantity: 1 }],
@@ -74,22 +81,27 @@ const receiveStock = () => stockForm.post(route('pharmacy.stock.store', stockFor
     onSuccess: () => stockForm.reset(),
 });
 
-const editPrice = (medicine) => {
-    if (editingMedicineId.value === medicine.id) {
-        editingMedicineId.value = null;
-        priceForm.reset();
-        return;
-    }
-
+const editMedicine = (medicine) => {
     editingMedicineId.value = medicine.id;
-    priceForm.unit_price = medicine.unit_price;
+    editMedicineForm.name = medicine.name;
+    editMedicineForm.generic_name = medicine.generic_name || '';
+    editMedicineForm.strength = medicine.strength || '';
+    editMedicineForm.dosage_form = medicine.dosage_form || '';
+    editMedicineForm.unit_price = medicine.unit_price;
+    editMedicineForm.reorder_level = medicine.reorder_level;
 };
 
-const updatePrice = (medicineId) => priceForm.patch(route('pharmacy.medicines.price', medicineId), {
+const cancelEditMedicine = () => {
+    editingMedicineId.value = null;
+    editMedicineForm.reset();
+    editMedicineForm.clearErrors();
+};
+
+const updateMedicine = () => editMedicineForm.patch(route('pharmacy.medicines.update', editingMedicineId.value), {
     preserveScroll: true,
     onSuccess: () => {
         editingMedicineId.value = null;
-        priceForm.reset();
+        editMedicineForm.reset();
     },
 });
 
@@ -228,6 +240,56 @@ const analyticsCards = computed(() => [
             </div>
         </div>
 
+        <div v-if="canManage && editingMedicineId" class="card shadow-sm mb-4 border-primary">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                <h5 class="mb-0">Edit medicine</h5>
+                <button type="button" class="btn-close" aria-label="Cancel editing" @click="cancelEditMedicine" />
+            </div>
+            <div class="card-body">
+                <form @submit.prevent="updateMedicine">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label for="edit-medicine-name" class="form-label">Brand / medicine name</label>
+                            <input id="edit-medicine-name" v-model="editMedicineForm.name" class="form-control" :class="{ 'is-invalid': editMedicineForm.errors.name }" required>
+                            <div class="invalid-feedback">{{ editMedicineForm.errors.name }}</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="edit-medicine-generic" class="form-label">Generic name</label>
+                            <input id="edit-medicine-generic" v-model="editMedicineForm.generic_name" class="form-control" :class="{ 'is-invalid': editMedicineForm.errors.generic_name }">
+                            <div class="invalid-feedback">{{ editMedicineForm.errors.generic_name }}</div>
+                        </div>
+                        <div class="col-sm-6 col-md-2">
+                            <label for="edit-medicine-strength" class="form-label">Strength</label>
+                            <input id="edit-medicine-strength" v-model="editMedicineForm.strength" class="form-control" :class="{ 'is-invalid': editMedicineForm.errors.strength }">
+                            <div class="invalid-feedback">{{ editMedicineForm.errors.strength }}</div>
+                        </div>
+                        <div class="col-sm-6 col-md-2">
+                            <label for="edit-medicine-form" class="form-label">Dosage form</label>
+                            <input id="edit-medicine-form" v-model="editMedicineForm.dosage_form" class="form-control" :class="{ 'is-invalid': editMedicineForm.errors.dosage_form }">
+                            <div class="invalid-feedback">{{ editMedicineForm.errors.dosage_form }}</div>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label for="edit-medicine-price" class="form-label">Unit price ({{ currency }})</label>
+                            <input id="edit-medicine-price" v-model="editMedicineForm.unit_price" type="number" min="0.01" step="0.01" class="form-control" :class="{ 'is-invalid': editMedicineForm.errors.unit_price }" required>
+                            <div class="invalid-feedback">{{ editMedicineForm.errors.unit_price }}</div>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label for="edit-medicine-reorder" class="form-label">Reorder level (units)</label>
+                            <input id="edit-medicine-reorder" v-model="editMedicineForm.reorder_level" type="number" min="0" class="form-control" :class="{ 'is-invalid': editMedicineForm.errors.reorder_level }" required>
+                            <div class="invalid-feedback">{{ editMedicineForm.errors.reorder_level }}</div>
+                        </div>
+                        <div class="col-md-3 d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary" @click="cancelEditMedicine">Cancel</button>
+                            <button type="submit" class="btn btn-primary" :disabled="editMedicineForm.processing">
+                                <span v-if="editMedicineForm.processing" class="spinner-border spinner-border-sm me-1" aria-hidden="true" />
+                                Save changes
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
                 <h5 class="mb-0">Medicine inventory</h5>
@@ -243,17 +305,7 @@ const analyticsCards = computed(() => [
                             <td class="fw-semibold">{{ medicine.name }}<div v-if="medicine.strength" class="small text-muted">{{ medicine.strength }}</div></td>
                             <td>{{ medicine.generic_name || '—' }}</td>
                             <td>{{ medicine.dosage_form || '—' }}</td>
-                            <td>
-                                <form v-if="editingMedicineId === medicine.id" class="d-flex gap-1" @submit.prevent="updatePrice(medicine.id)">
-                                    <input v-model="priceForm.unit_price" type="number" min="0.01" step="0.01" class="form-control form-control-sm" :class="{ 'is-invalid': priceForm.errors.unit_price }" :aria-label="`Price per unit for ${medicine.name}`" required>
-                                    <button type="submit" class="btn btn-sm btn-success" :disabled="priceForm.processing" aria-label="Save medicine price"><i class="bi bi-check-lg" /></button>
-                                    <div v-if="priceForm.errors.unit_price" class="invalid-feedback d-block">{{ priceForm.errors.unit_price }}</div>
-                                </form>
-                                <div v-else class="d-flex align-items-center gap-2">
-                                    <span>{{ formatMoney(medicine.unit_price) }}</span>
-                                    <button v-if="canManage" type="button" class="btn btn-sm btn-link p-0" @click="editPrice(medicine)">Edit</button>
-                                </div>
-                            </td>
+                            <td>{{ formatMoney(medicine.unit_price) }}</td>
                             <td>
                                 <div class="stock-quantity">{{ medicine.stock_quantity }} <span>units</span></div>
                                 <div class="stock-meter" role="progressbar" :aria-valuenow="medicine.stock_quantity" aria-valuemin="0" :aria-valuemax="Math.max(medicine.reorder_level, 1)" :aria-label="`${medicine.name} stock level`">
@@ -267,9 +319,14 @@ const analyticsCards = computed(() => [
                                 <span v-else class="badge bg-success">In stock</span>
                             </td>
                             <td v-if="canManage" class="text-end">
+                                <div class="d-inline-flex flex-wrap justify-content-end gap-1">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="editMedicine(medicine)">
+                                    <i class="bi bi-pencil me-1"></i> Edit
+                                </button>
                                 <button type="button" class="btn btn-sm btn-outline-primary" @click="openStock(medicine)">
                                     <i class="bi bi-box-seam me-1"></i> Receive stock
                                 </button>
+                                </div>
                             </td>
                         </tr>
                         <tr v-if="medicines.data.length === 0">

@@ -134,6 +134,27 @@ class PharmacyController extends Controller
         return back()->with('success', 'Medicine price updated.');
     }
 
+    public function updateMedicine(Request $request, int $medicine): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'generic_name' => ['nullable', 'string', 'max:255'],
+            'strength' => ['nullable', 'string', 'max:100'],
+            'dosage_form' => ['nullable', 'string', 'max:100'],
+            'unit_price' => ['required', 'numeric', 'gt:0', 'max:100000000', 'decimal:0,2'],
+            'reorder_level' => ['required', 'integer', 'min:0', 'max:10000000'],
+        ]);
+        $hospital = Hospital::default();
+
+        Medicine::query()
+            ->where('hospital_id', $hospital->id)
+            ->where('is_active', true)
+            ->findOrFail($medicine)
+            ->update($validated);
+
+        return back()->with('success', 'Medicine details updated.');
+    }
+
     public function receiveStock(Request $request, int $medicine): RedirectResponse
     {
         $validated = $request->validate([
