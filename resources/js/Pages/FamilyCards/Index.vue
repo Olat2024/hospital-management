@@ -55,6 +55,12 @@ defineProps({
                                 </td>
                                 <td class="text-end">
                                     <Link
+                                        :href="route('family-cards.edit', card.id)"
+                                        class="btn btn-sm btn-outline-secondary text-nowrap"
+                                    >
+                                        <i class="bi bi-pencil me-1"></i> Edit
+                                    </Link>
+                                    <Link
                                         :href="route('patients.create.individual', { family_card_id: card.id })"
                                         class="btn btn-sm btn-outline-primary text-nowrap"
                                     >

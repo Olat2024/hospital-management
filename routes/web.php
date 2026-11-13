@@ -69,6 +69,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [FamilyCardController::class, 'index'])->name('index');
         Route::get('/create', [FamilyCardController::class, 'create'])->name('create');
         Route::post('/', [FamilyCardController::class, 'storeCard'])->name('store');
+        Route::get('/{familyCard}/edit', [FamilyCardController::class, 'edit'])->name('edit');
+        Route::put('/{familyCard}', [FamilyCardController::class, 'updateCard'])->name('update');
     });
 
     Route::get('/anc', [AntenatalController::class, 'index'])

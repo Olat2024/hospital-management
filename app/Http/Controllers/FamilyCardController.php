@@ -34,6 +34,24 @@ class FamilyCardController extends Controller
         return Inertia::render('FamilyCards/Create');
     }
 
+    public function edit(int $familyCard): Response
+    {
+        $familyCard = FamilyCard::query()
+            ->where('hospital_id', Hospital::default()->id)
+            ->findOrFail($familyCard);
+
+        return Inertia::render('FamilyCards/Create', [
+            'card' => $familyCard->only([
+                'id',
+                'card_number',
+                'family_name',
+                'contact_name',
+                'phone',
+                'address',
+            ]),
+        ]);
+    }
+
     public function storeCard(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -56,6 +74,23 @@ class FamilyCardController extends Controller
 
         return redirect()->route('family-cards.index')
             ->with('success', "Family card {$familyCard->card_number} created successfully.");
+    }
+
+    public function updateCard(Request $request, int $familyCard): RedirectResponse
+    {
+        $validated = $request->validate([
+            'family_name' => ['required', 'string', 'max:255'],
+            'contact_name' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'address' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $familyCard = FamilyCard::query()
+            ->where('hospital_id', Hospital::default()->id)
+            ->findOrFail($familyCard);
+        $familyCard->update($validated);
+
+        return redirect()->route('family-cards.index')
+            ->with('success', "Family card {$familyCard->card_number} updated successfully.");
     }
 
     public function store(Request $request, int $patient): RedirectResponse

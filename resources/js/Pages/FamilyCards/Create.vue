@@ -2,14 +2,20 @@
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
-const form = useForm({
-    family_name: '',
-    contact_name: '',
-    phone: '',
-    address: '',
+const props = defineProps({
+    card: { type: Object, default: null },
 });
 
-const submit = () => form.post(route('family-cards.store'));
+const form = useForm({
+    family_name: props.card?.family_name || '',
+    contact_name: props.card?.contact_name || '',
+    phone: props.card?.phone || '',
+    address: props.card?.address || '',
+});
+
+const submit = () => props.card
+    ? form.put(route('family-cards.update', props.card.id))
+    : form.post(route('family-cards.store'));
 </script>
 
 <template>
@@ -18,8 +24,10 @@ const submit = () => form.post(route('family-cards.store'));
             <header class="clinical-page-heading">
                 <div>
                     <div class="clinical-eyebrow">Patient directory</div>
-                    <h1 class="clinical-page-title">Register a family card</h1>
-                    <p class="clinical-page-subtitle">Create one household card, then assign it to patients as they are registered.</p>
+                    <h1 class="clinical-page-title">{{ card ? 'Edit family card' : 'Register a family card' }}</h1>
+                    <p class="clinical-page-subtitle">
+                        {{ card ? `Update details for family card ${card.card_number}.` : 'Create one household card, then assign it to patients as they are registered.' }}
+                    </p>
                 </div>
                 <Link :href="route('patients.create')" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i> Registration options
@@ -61,7 +69,7 @@ const submit = () => form.post(route('family-cards.store'));
                                     <Link :href="route('family-cards.index')" class="btn btn-link px-0">View family cards</Link>
                                     <button type="submit" class="btn btn-primary" :disabled="form.processing">
                                         <span v-if="form.processing" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                                        Create family card
+                                        {{ card ? 'Save changes' : 'Create family card' }}
                                     </button>
                                 </div>
                             </form>
