@@ -519,6 +519,9 @@ const discharge = (admission) => dischargeForm.post(route('admissions.discharge'
                                 <template v-if="record.doctor">
                                     Dr. {{ record.doctor.first_name }} {{ record.doctor.last_name }}
                                 </template>
+                                <template v-else-if="record.recorded_by">
+                                    {{ record.recorded_by.name }}
+                                </template>
                                 <template v-else>Unknown practitioner</template>
                             </div>
                             <p class="mb-1" v-if="record.prescription"><strong>Prescription:</strong> {{ record.prescription }}</p>

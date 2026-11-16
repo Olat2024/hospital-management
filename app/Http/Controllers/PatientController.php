@@ -291,6 +291,7 @@ class PatientController extends Controller
 
         if ($canViewMedicalRecords) {
             $relations['medicalRecords.doctor'] = fn ($query) => $query->orderByDesc('created_at');
+            $relations['medicalRecords.recordedBy'] = fn ($query) => $query->select('id', 'name');
             $relations['referrals'] = fn ($query) => $query->orderByDesc('referred_at')->with('doctor');
         }
 

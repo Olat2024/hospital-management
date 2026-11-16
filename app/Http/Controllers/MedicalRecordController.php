@@ -21,19 +21,18 @@ class MedicalRecordController extends Controller
 
         $doctor = $request->user()->doctorProfile;
 
-        if (! $doctor) {
+        if ($request->user()->hasRole('Doctor') && ! $doctor) {
             return back()->withErrors([
                 'error' => 'This Doctor login is not linked to a doctor profile. Ask an administrator to link it from Doctors → Add Doctor.',
             ]);
         }
 
-        $validated['doctor_id'] = $doctor->id;
-
         Patient::where('hospital_id', $hospital->id)
             ->findOrFail($validated['patient_id'])
             ->medicalRecords()
             ->create([
-                'doctor_id' => $validated['doctor_id'],
+                'doctor_id' => $doctor?->id,
+                'recorded_by' => $request->user()->id,
                 'diagnosis' => $validated['diagnosis'],
                 'prescription' => $validated['prescription'] ?? null,
                 'notes' => $validated['notes'] ?? null,

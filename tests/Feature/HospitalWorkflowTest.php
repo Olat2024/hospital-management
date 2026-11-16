@@ -464,6 +464,36 @@ class HospitalWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_nurse_with_note_permission_can_save_a_clinical_note_with_their_own_attribution(): void
+    {
+        $nurse = User::factory()->create(['email_verified_at' => now()]);
+        $nurse->assignRole('Nurse');
+        $nurse->givePermissionTo('medical-records.create');
+        $patient = $this->makePatient();
+
+        $this->actingAs($nurse)
+            ->post(route('medical-records.store'), [
+                'patient_id' => $patient->id,
+                'diagnosis' => 'Nursing observation',
+                'notes' => 'Patient monitored and stable.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('medical_records', [
+            'patient_id' => $patient->id,
+            'doctor_id' => null,
+            'recorded_by' => $nurse->id,
+            'diagnosis' => 'Nursing observation',
+        ]);
+
+        $this->actingAs($nurse)
+            ->get(route('patients.show', $patient))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('patient.medical_records.0.recorded_by.name', $nurse->name));
+    }
+
     public function test_receptionist_cannot_add_clinical_notes(): void
     {
         $patient = $this->makePatient();

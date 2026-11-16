@@ -16,9 +16,8 @@ use Inertia\Inertia;
  * Doctor directory + staff onboarding (Admin only).
  *
  * Every doctor needs a login account, so store() provisions a User with the
- * Doctor role. destroy() deactivates rather than deletes: doctors.user_id is a
- * cascading FK and medical_records.doctor_id cascades too, so a hard delete
- * would silently destroy patient clinical notes.
+ * Doctor role. destroy() deactivates rather than deletes to preserve historical
+ * clinical notes and doctor assignments.
  */
 class DoctorController extends Controller
 {

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class MedicalRecord extends Model
 {
     protected $fillable = [
-        'patient_id', 'doctor_id', 'diagnosis', 'prescription', 'notes',
+        'patient_id', 'doctor_id', 'recorded_by', 'diagnosis', 'prescription', 'notes',
     ];
 
     public function patient()
@@ -19,6 +19,11 @@ class MedicalRecord extends Model
     public function doctor()
     {
         return $this->belongsTo(Doctor::class);
+    }
+
+    public function recordedBy()
+    {
+        return $this->belongsTo(User::class, 'recorded_by');
     }
 
     public function dispensations(): HasMany
