@@ -31,6 +31,8 @@ fi
 rm -f bootstrap/cache/config.php bootstrap/cache/routes-*.php
 mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
 chmod -R 775 storage bootstrap/cache
+echo "=== [bootstrap] Creating storage link ==="
+php artisan storage:link --force
 
 # 4. Register packages and clear old cache
 php artisan package:discover --ansi
