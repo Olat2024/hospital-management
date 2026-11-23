@@ -30,9 +30,10 @@ fi
 # 3. Prepare directories
 rm -f bootstrap/cache/config.php bootstrap/cache/routes-*.php
 mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+chown -R www-data:www-data storage/app/public
+chmod -R 775 storage/app/public
 chmod -R 775 storage bootstrap/cache
 echo "=== [bootstrap] Creating storage link ==="
-php artisan storage:link --force
 
 # 4. Register packages and clear old cache
 php artisan package:discover --ansi

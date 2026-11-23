@@ -45,6 +45,14 @@ ENV LOG_CHANNEL stderr
 RUN echo "clear_env = no" >> /usr/local/etc/php-fpm.d/www.conf
 RUN chmod +x /var/www/html/scripts/00-bootstrap.sh
 
+# Install envsubst (used by /start-render-nginx.sh to render the nginx config)
+RUN apk add --no-cache gettext
+
+# Bake the storage symlink into the image (idempotent — safe if public/storage already exists)
+RUN mkdir -p /var/www/html/storage/app/public && \
+    rm -rf /var/www/html/public/storage && \
+    ln -s /var/www/html/storage/app/public /var/www/html/public/storage
+
 # --- NEW NGINX PORT BINDING LOGIC ---
 # Copy the Nginx config template
 COPY render-nginx.conf /etc/nginx/conf.d/render-nginx.conf.template
