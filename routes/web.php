@@ -9,7 +9,6 @@ use App\Http\Controllers\FamilyCardController;
 use App\Http\Controllers\HospitalSettingsController;
 use App\Http\Controllers\HospitalSetupController;
 use App\Http\Controllers\InvoiceController;
-use App\Http\Controllers\LabOrderController;
 use App\Http\Controllers\MedicalRecordController;
 use App\Http\Controllers\NursingController;
 use App\Http\Controllers\PatientController;
@@ -149,15 +148,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/nursing/vitals', [NursingController::class, 'store'])
         ->middleware('permission:nursing.manage')
         ->name('nursing.vitals.store');
-
-    Route::get('/lab', [LabOrderController::class, 'index'])
-        ->middleware('permission:lab.view')
-        ->name('lab.index');
-
-    Route::middleware('permission:lab.manage')->prefix('lab')->name('lab.')->group(function () {
-        Route::post('/', [LabOrderController::class, 'store'])->name('store');
-        Route::patch('/{labOrder}', [LabOrderController::class, 'update'])->name('update');
-    });
 
     Route::get('/pharmacy', [PharmacyController::class, 'index'])
         ->middleware('permission:pharmacy.view')

@@ -298,7 +298,6 @@ class PatientController extends Controller
         $canViewMedicalRecords = $request->user()->can('medical-records.view');
         $canViewVitals = $request->user()->can('nursing.view');
         $canViewAnc = $request->user()->can('antenatal.view');
-        $canViewLab = $request->user()->can('lab.view');
         $relations = [];
 
         if ($canViewAppointments) {
@@ -328,11 +327,6 @@ class PatientController extends Controller
         if ($canViewAnc) {
             $relations['antenatalCards'] = fn ($query) => $query->orderByDesc('booking_date');
         }
-        if ($canViewLab) {
-            $relations['labOrders'] = fn ($query) => $query
-                ->orderByDesc('ordered_at')
-                ->with(['orderedBy:id,name', 'processedBy:id,name']);
-        }
 
         $patient->load($relations);
 
@@ -345,8 +339,6 @@ class PatientController extends Controller
                 'viewMedicalRecords' => $canViewMedicalRecords,
                 'viewVitals' => $canViewVitals,
                 'viewAnc' => $canViewAnc,
-                'viewLab' => $canViewLab,
-                'manageLab' => $request->user()->can('lab.manage'),
                 'manageAnc' => $request->user()->can('antenatal.manage'),
                 'managePatient' => $request->user()->can('patients.manage'),
                 'manageVitals' => $request->user()->can('nursing.manage'),

@@ -26,7 +26,6 @@ class PermissionSeeder extends Seeder
         'referrals' => ['create'],
         'admissions' => ['view', 'manage'],
         'nursing' => ['view', 'manage'],
-        'lab' => ['view', 'manage'],
         'doctors' => ['manage'],
         'billing' => ['view', 'create', 'manage'],
         'pharmacy' => ['view', 'manage'],
@@ -57,14 +56,12 @@ class PermissionSeeder extends Seeder
             'referrals.create',
             'admissions.view', 'admissions.manage',
             'nursing.view',
-            'lab.view', 'lab.manage',
             'billing.view',
             'hospital.view',
         ],
         'Lab Technician' => [
             'patients.view',
             'medical-records.view',
-            'lab.view', 'lab.manage',
         ],
         'Nurse' => [
             'patients.view',
