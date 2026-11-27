@@ -280,4 +280,40 @@ class PatientRegistrationTest extends TestCase
 
         $this->assertNotSoftDeleted('patients', ['id' => $patient->id]);
     }
+
+    public function test_patient_search_endpoint_returns_matching_hospital_patients(): void
+    {
+        $receptionist = User::factory()->create();
+        $receptionist->assignRole('Receptionist');
+        $hospital = Hospital::default();
+        $otherHospital = Hospital::create(['name' => 'Other Clinic', 'is_active' => false]);
+
+        Patient::create([
+            'hospital_id' => $hospital->id,
+            'mrn' => 'MRN-SEARCH-001',
+            'first_name' => 'Zainab',
+            'last_name' => 'Musa',
+            'dob' => '1992-03-10',
+            'gender' => 'Female',
+            'phone' => '08011110000',
+            'address' => '1 Main St',
+        ]);
+
+        Patient::create([
+            'hospital_id' => $otherHospital->id,
+            'mrn' => 'MRN-SEARCH-002',
+            'first_name' => 'Zainab',
+            'last_name' => 'OtherHospital',
+            'dob' => '1992-03-10',
+            'gender' => 'Female',
+            'phone' => '08022220000',
+            'address' => '2 Other St',
+        ]);
+
+        $this->actingAs($receptionist)
+            ->getJson(route('patients.search', ['q' => 'Zainab']))
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.mrn', 'MRN-SEARCH-001');
+    }
 }

@@ -7,6 +7,7 @@ use App\Models\Hospital;
 use App\Models\Patient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class AppointmentController extends Controller {
@@ -78,23 +79,32 @@ class AppointmentController extends Controller {
     }
 
     public function create() {
+        $hospitalId = Hospital::default()->id;
+
         return Inertia::render('Appointments/Create', [
             // Pass minimal data to the frontend for the dropdowns
-            'patients' => Patient::orderBy('last_name')->get(['id', 'first_name', 'last_name']),
-            'doctors' => Doctor::active()->orderBy('last_name')->get(['id', 'first_name', 'last_name', 'specialization'])
+            'patients' => Patient::query()
+                ->where('hospital_id', $hospitalId)
+                ->orderBy('last_name')
+                ->orderBy('first_name')
+                ->limit(100)
+                ->get(['id', 'mrn', 'first_name', 'last_name']),
+            'doctors' => Doctor::active()->orderBy('last_name')
+                ->get(['id', 'first_name', 'last_name', 'specialization']),
         ]);
     }
 
     public function store(Request $request) {
+        $hospitalId = Hospital::default()->id;
         $validated = $request->validate([
-            'patient_id' => 'required|exists:patients,id',
-            'doctor_id' => 'required|exists:doctors,id',
+            'patient_id' => ['required', 'integer', Rule::exists('patients', 'id')->where('hospital_id', $hospitalId)],
+            'doctor_id' => ['required', 'integer', Rule::exists('doctors', 'id')->where('is_active', true)],
             'appointment_date' => 'required|date|after_or_equal:today',
             'appointment_time' => 'required|string|max:8',
-            'notes' => 'nullable|string|max:2000'
+            'notes' => 'nullable|string|max:2000',
         ]);
 
-        $patient = Patient::findOrFail($validated['patient_id']);
+        $patient = Patient::where('hospital_id', $hospitalId)->findOrFail($validated['patient_id']);
 
         Appointment::create([
             'hospital_id' => $patient->hospital_id,
@@ -114,6 +124,7 @@ class AppointmentController extends Controller {
      * Change an appointment's status, or move it to a new date/time.
      */
     public function update(Request $request, Appointment $appointment) {
+        abort_unless($appointment->hospital_id === Hospital::default()->id, 404);
         $this->authorizeStatusChange($request);
 
         $validated = $request->validate([

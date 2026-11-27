@@ -3,18 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Services\ImageUploadService;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
-use RuntimeException;
 
 class ProfileController extends Controller
 {
+    public function __construct(private readonly ImageUploadService $images)
+    {
+    }
     /**
      * Display the user's profile form.
      */
@@ -34,18 +36,14 @@ class ProfileController extends Controller
         $user = $request->user();
         $data = $request->validated();
 
-        if ($request->hasFile('avatar')) {
-            $avatar = $request->file('avatar')->store('avatars', config('filesystems.uploads_disk', 'public'));
-            if ($avatar === false) {
-                throw new RuntimeException('Failed to store the profile image.');
-            }
-
-            if ($user->avatar) {
-                Storage::disk(config('filesystems.uploads_disk', 'public'))->delete($user->avatar);
-            }
-
-            $user->avatar = $avatar;
-        }
+        $user->avatar = $this->images->syncImage(
+            $request,
+            'avatar',
+            'avatars',
+            $user->avatar,
+            false,
+            'Failed to store the profile image.'
+        );
 
         unset($data['avatar']);
 

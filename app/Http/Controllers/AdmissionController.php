@@ -15,18 +15,52 @@ use Inertia\Response;
 
 class AdmissionController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $hospital = Hospital::default();
+        $search = trim((string) $request->query('search', ''));
+        $status = (string) $request->query('status', 'admitted');
+        if (! in_array($status, ['admitted', 'discharged', 'all'], true)) {
+            $status = 'admitted';
+        }
+
+        $admissions = Admission::query()
+            ->whereHas('patient', fn ($query) => $query->where('hospital_id', $hospital->id))
+            ->when($status !== 'all', fn ($query) => $query->where('status', $status))
+            ->when($search !== '', function ($query) use ($search) {
+                $like = '%'.$search.'%';
+                $query->where(fn ($sub) => $sub
+                    ->where('reason', 'like', $like)
+                    ->orWhereHas('patient', fn ($patient) => $patient
+                        ->where('first_name', 'like', $like)
+                        ->orWhere('last_name', 'like', $like)
+                        ->orWhere('mrn', 'like', $like)));
+            })
+            ->with([
+                'patient:id,mrn,first_name,last_name,phone',
+                'admittedBy:id,name',
+                'dischargedBy:id,name',
+            ])
+            ->orderByDesc('admitted_at')
+            ->paginate(15)
+            ->withQueryString();
+
+        $hospitalAdmissions = Admission::query()
+            ->whereHas('patient', fn ($query) => $query->where('hospital_id', $hospital->id));
 
         return Inertia::render('Admissions/Index', [
-            'admissions' => Admission::query()
-                ->where('status', 'admitted')
-                ->whereHas('patient', fn ($query) => $query->where('hospital_id', $hospital->id))
-                ->with('patient:id,mrn,first_name,last_name,phone')
-                ->orderBy('admitted_at')
-                ->paginate(15)
-                ->withQueryString(),
+            'admissions' => $admissions,
+            'filters' => [
+                'search' => $search,
+                'status' => $status,
+            ],
+            'summary' => [
+                'admitted' => (clone $hospitalAdmissions)->where('status', 'admitted')->count(),
+                'dischargedToday' => (clone $hospitalAdmissions)
+                    ->where('status', 'discharged')
+                    ->whereDate('discharged_at', today())
+                    ->count(),
+            ],
         ]);
     }
 

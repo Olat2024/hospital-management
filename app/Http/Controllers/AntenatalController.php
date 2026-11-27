@@ -39,6 +39,7 @@ class AntenatalController extends Controller
                 ->where('gender', 'Female')
                 ->orderBy('last_name')
                 ->orderBy('first_name')
+                ->limit(100)
                 ->get(['id', 'mrn', 'first_name', 'last_name', 'dob', 'phone', 'address']),
         ]);
     }

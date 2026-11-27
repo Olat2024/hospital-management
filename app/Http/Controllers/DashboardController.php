@@ -36,25 +36,35 @@ class DashboardController extends Controller
             ]);
         }
 
-        // Default overview for Admins and Receptionists
+        // Default overview for Admins and Receptionists (scoped by user permissions).
         $hospitalId = $hospital->id;
+        $canViewPatients = $user->can('patients.view');
+        $canViewAppointments = $user->can('appointments.view');
 
         return Inertia::render('Dashboard/Staff', [
             'stats' => [
-                'totalPatients' => Patient::where('hospital_id', $hospitalId)->count(),
-                'todayAppointments' => Appointment::where('hospital_id', $hospitalId)
-                    ->whereDate('scheduled_at', today())->count(),
-                'waiting' => Appointment::where('hospital_id', $hospitalId)
-                    ->whereDate('scheduled_at', today())
-                    ->where('status', 'scheduled')->count(),
+                'totalPatients' => $canViewPatients
+                    ? Patient::where('hospital_id', $hospitalId)->count()
+                    : 0,
+                'todayAppointments' => $canViewAppointments
+                    ? Appointment::where('hospital_id', $hospitalId)
+                        ->whereDate('scheduled_at', today())->count()
+                    : 0,
+                'waiting' => $canViewAppointments
+                    ? Appointment::where('hospital_id', $hospitalId)
+                        ->whereDate('scheduled_at', today())
+                        ->where('status', 'scheduled')->count()
+                    : 0,
                 'doctors' => Doctor::where('hospital_id', $hospitalId)->active()->count(),
             ],
-            'recentAppointments' => Appointment::with(['patient', 'doctor'])
-                ->where('hospital_id', $hospitalId)
-                ->whereDate('scheduled_at', today())
-                ->orderBy('scheduled_at')
-                ->take(5)
-                ->get(),
+            'recentAppointments' => $canViewAppointments
+                ? Appointment::with(['patient', 'doctor'])
+                    ->where('hospital_id', $hospitalId)
+                    ->whereDate('scheduled_at', today())
+                    ->orderBy('scheduled_at')
+                    ->take(5)
+                    ->get()
+                : [],
         ]);
     }
 }

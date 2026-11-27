@@ -108,6 +108,12 @@ const initials = computed(() => {
                     </Link>
                 </li>
 
+                <li class="nav-item" v-if="hasPermission('lab.view')">
+                    <Link :href="route('lab.index')" class="nav-link text-white p-2" :title="isSidebarCollapsed ? 'Laboratory' : undefined" :class="{ 'bg-primary rounded': $page.url.startsWith('/lab') }">
+                        <i class="bi bi-eyedropper me-2"></i><span class="sidebar-label">Laboratory</span>
+                    </Link>
+                </li>
+
                 <li class="nav-item" v-if="hasPermission('antenatal.view')">
                     <Link :href="route('antenatal.index')" class="nav-link text-white p-2" :title="isSidebarCollapsed ? 'ANC Cards' : undefined" :class="{ 'bg-primary rounded': $page.url.startsWith('/anc') }">
                         <i class="bi bi-person-vcard me-2"></i><span class="sidebar-label">ANC Cards</span>

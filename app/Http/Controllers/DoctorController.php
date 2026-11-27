@@ -132,18 +132,21 @@ class DoctorController extends Controller
         ]);
 
         DB::transaction(function () use ($doctor, $validated) {
+            $isActive = $validated['is_active'] ?? $doctor->is_active;
+
             $doctor->update([
                 'first_name' => $validated['first_name'],
                 'last_name' => $validated['last_name'],
                 'specialization' => $validated['specialization'],
                 'phone' => $validated['phone'],
-                'is_active' => $validated['is_active'] ?? $doctor->is_active,
+                'is_active' => $isActive,
             ]);
 
             $user = $doctor->user;
 
             $user->name = $validated['first_name'].' '.$validated['last_name'];
             $user->email = $validated['email'];
+            $user->is_active = (bool) $isActive;
 
             if (! empty($validated['password'])) {
                 $user->password = Hash::make($validated['password']);
@@ -161,7 +164,10 @@ class DoctorController extends Controller
      */
     public function destroy(Request $request, Doctor $doctor)
     {
-        $doctor->update(['is_active' => false]);
+        DB::transaction(function () use ($doctor) {
+            $doctor->update(['is_active' => false]);
+            $doctor->user()->update(['is_active' => false]);
+        });
 
         return redirect()->route('doctors.index')
             ->with('success', "Dr. {$doctor->last_name} deactivated. Existing records are preserved.");

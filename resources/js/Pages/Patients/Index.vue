@@ -3,6 +3,7 @@
 import { Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Pagination from '@/Components/Pagination.vue';
 import { confirmAction } from '@/Composables/useSweetAlert';
 
 const props = defineProps({
@@ -202,22 +203,14 @@ const pageFrom = (url) => {
             </div>
 
             <!-- Pagination -->
-            <div class="card-footer bg-white d-flex justify-content-between align-items-center py-3" v-if="patients.last_page > 1">
-                <span class="small text-muted">
-                    Showing {{ patients.from }}&ndash;{{ patients.to }} of {{ patients.total }}
-                </span>
-                <div class="btn-group">
-                    <button
-                        v-for="(link, i) in patients.links"
-                        :key="i"
-                        type="button"
-                        class="btn btn-sm"
-                        :class="link.active ? 'btn-primary' : 'btn-outline-secondary'"
-                        :disabled="!link.url"
-                        @click="applyFilters(pageFrom(link.url))"
-                        v-html="link.label"
-                    ></button>
-                </div>
+            <div class="card-footer bg-white py-3" v-if="patients.last_page > 1">
+                <Pagination
+                    :paginator="patients"
+                    aria-label="Patient pagination"
+                    show-summary
+                    button-mode
+                    @navigate="applyFilters(pageFrom($event))"
+                />
             </div>
         </div>
         </div>

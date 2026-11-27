@@ -1,7 +1,8 @@
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PatientSearchSelect from '@/Components/PatientSearchSelect.vue';
 
 const props = defineProps({
     patients: Array,
@@ -35,7 +36,7 @@ const form = useForm({
     visits: [],
 });
 
-const selectedPatient = computed(() => props.patients.find((patient) => Number(patient.id) === Number(form.patient_id)));
+const selectedPatient = ref(null);
 
 const addPregnancy = () => form.previous_pregnancies.push({
     date_of_birth: '',
@@ -90,14 +91,17 @@ const submit = () => form.post(route('antenatal.store'));
                         <div class="row g-3">
                             <div class="col-lg-6">
                                 <label for="patient_id" class="form-label">Patient <span class="text-danger">*</span></label>
-                                <select id="patient_id" v-model="form.patient_id" class="form-select" :class="{ 'is-invalid': form.errors.patient_id }" required>
-                                    <option value="" disabled>Select a registered patient...</option>
-                                    <option v-for="patient in patients" :key="patient.id" :value="patient.id">
-                                        {{ patient.last_name }}, {{ patient.first_name }} — {{ patient.mrn }}
-                                    </option>
-                                </select>
-                                <div class="invalid-feedback">{{ form.errors.patient_id }}</div>
-                                <div v-if="!patients.length" class="form-text text-danger">Register the patient first before starting an ANC card.</div>
+                                <PatientSearchSelect
+                                    id="patient_id"
+                                    v-model="form.patient_id"
+                                    :patients="patients"
+                                    gender="Female"
+                                    placeholder="Select a registered patient..."
+                                    empty-text="Register the patient first before starting an ANC card."
+                                    :error="form.errors.patient_id"
+                                    :required="true"
+                                    @select="selectedPatient = $event"
+                                />
                             </div>
                             <div v-if="selectedPatient" class="col-12">
                                 <div class="row g-2 rounded border bg-light p-3 mx-0">

@@ -120,20 +120,38 @@ const discharge = (admission) => dischargeForm.post(route('admissions.discharge'
     preserveScroll: true,
     onSuccess: () => dischargeForm.reset(),
 });
+
+const labForm = useForm({
+    patient_id: props.patient.id,
+    test_name: '',
+    category: '',
+    priority: 'routine',
+    notes: '',
+});
+const submitLabOrder = () => labForm.post(route('lab.store'), {
+    preserveScroll: true,
+    onSuccess: () => labForm.reset('test_name', 'category', 'notes'),
+});
+const printPage = () => window.print();
 </script>
 
 <template>
     <AppLayout>
         <div class="clinical-page">
-        <header class="clinical-page-heading">
-            <div>
-                <div class="clinical-eyebrow">Patient record</div>
-                <h1 class="clinical-page-title">{{ patient.first_name }} {{ patient.last_name }}</h1>
-                <p class="clinical-page-subtitle">Medical record number <code>{{ patient.mrn }}</code></p>
+        <header class="app-page-header">
+            <div class="app-page-header-content">
+                <div class="app-page-eyebrow">Patient record</div>
+                <h1 class="app-page-title">{{ patient.first_name }} {{ patient.last_name }}</h1>
+                <p class="app-page-description">Medical record number <code>{{ patient.mrn }}</code></p>
             </div>
-            <Link :href="route('patients.index')" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i> Patient directory
-            </Link>
+            <div class="app-page-header-actions no-print">
+                <button type="button" class="btn btn-outline-primary" @click="printPage">
+                    <i class="bi bi-printer me-1"></i> Print chart
+                </button>
+                <Link :href="route('patients.index')" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i> Patient directory
+                </Link>
+            </div>
         </header>
         <div v-if="flash.success" class="alert alert-success" role="status" aria-live="polite">
             <i class="bi bi-check-circle me-2"></i>{{ flash.success }}
@@ -576,6 +594,66 @@ const discharge = (admission) => dischargeForm.post(route('admissions.discharge'
                                     <div v-if="referral.notes" class="small text-muted mt-1">{{ referral.notes }}</div>
                                 </div>
                                 <div v-if="!(patient.referrals || []).length" class="list-group-item py-4 text-center text-muted">No referrals recorded.</div>
+                            </div>
+                        </div>
+
+                        <div v-if="can.viewLab" class="card clinical-panel mt-4">
+                            <div class="card-header">
+                                <h2>Laboratory orders &amp; results</h2>
+                                <span class="badge bg-light text-dark border">{{ (patient.lab_orders || []).length }}</span>
+                            </div>
+                            <div v-if="can.manageLab" class="card-body border-bottom no-print">
+                                <form @submit.prevent="submitLabOrder">
+                                    <div class="row g-3">
+                                        <div class="col-md-5">
+                                            <label for="patient-lab-test" class="form-label">Test / Investigation</label>
+                                            <input id="patient-lab-test" v-model="labForm.test_name" class="form-control" :class="{ 'is-invalid': labForm.errors.test_name }" placeholder="e.g. Malaria RDT, FBC" required>
+                                            <div class="invalid-feedback">{{ labForm.errors.test_name }}</div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="patient-lab-category" class="form-label">Category</label>
+                                            <input id="patient-lab-category" v-model="labForm.category" class="form-control" :class="{ 'is-invalid': labForm.errors.category }" placeholder="Hematology">
+                                            <div class="invalid-feedback">{{ labForm.errors.category }}</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="patient-lab-priority" class="form-label">Priority</label>
+                                            <select id="patient-lab-priority" v-model="labForm.priority" class="form-select">
+                                                <option value="routine">Routine</option>
+                                                <option value="urgent">Urgent</option>
+                                                <option value="stat">STAT</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="patient-lab-notes" class="form-label">Clinical indication (optional)</label>
+                                            <input id="patient-lab-notes" v-model="labForm.notes" class="form-control" :class="{ 'is-invalid': labForm.errors.notes }">
+                                            <div class="invalid-feedback">{{ labForm.errors.notes }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mt-3">
+                                        <Link :href="route('lab.index')" class="small text-decoration-none">Open lab queue →</Link>
+                                        <button type="submit" class="btn btn-primary btn-sm" :disabled="labForm.processing">Order lab test</button>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="list-group list-group-flush">
+                                <div v-for="order in patient.lab_orders" :key="order.id" class="list-group-item py-3">
+                                    <div class="d-flex flex-wrap justify-content-between gap-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <strong>{{ order.test_name }}</strong>
+                                            <span v-if="order.category" class="badge bg-light text-secondary border">{{ order.category }}</span>
+                                            <span class="badge text-capitalize" :class="order.status === 'completed' ? 'bg-success' : order.status === 'in_progress' ? 'bg-info text-dark' : order.status === 'cancelled' ? 'bg-secondary' : 'bg-warning text-dark'">
+                                                {{ order.status.replace('_', ' ') }}
+                                            </span>
+                                        </div>
+                                        <span class="small text-muted">{{ formatDate(order.ordered_at) }}</span>
+                                    </div>
+                                    <div v-if="order.notes" class="small text-muted mt-1">{{ order.notes }}</div>
+                                    <div v-if="order.result_summary || order.result_notes" class="small mt-2 rounded bg-light border p-2">
+                                        <div v-if="order.result_summary"><strong>Result:</strong> {{ order.result_summary }}</div>
+                                        <div v-if="order.result_notes" class="text-muted">{{ order.result_notes }}</div>
+                                    </div>
+                                </div>
+                                <div v-if="!(patient.lab_orders || []).length" class="list-group-item py-4 text-center text-muted">No laboratory orders recorded.</div>
                             </div>
                         </div>
                     </div>

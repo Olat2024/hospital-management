@@ -98,4 +98,21 @@ class Patient extends Model
     {
         return $this->hasMany(AntenatalCard::class)->latest('booking_date');
     }
+
+    public function labOrders(): HasMany
+    {
+        return $this->hasMany(LabOrder::class)->latest('ordered_at');
+    }
+
+    public function hasClinicalHistory(): bool
+    {
+        return $this->appointments()->exists()
+            || $this->medicalRecords()->exists()
+            || $this->vitalSigns()->exists()
+            || $this->invoices()->exists()
+            || $this->admissions()->exists()
+            || $this->referrals()->exists()
+            || $this->antenatalCards()->exists()
+            || $this->labOrders()->exists();
+    }
 }

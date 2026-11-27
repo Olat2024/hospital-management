@@ -7,7 +7,6 @@ use App\Models\Patient;
 use App\Models\VitalSign;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -21,8 +20,6 @@ class NursingController extends Controller
         $search = trim((string) $request->query('search', ''));
         $statusFilter = (string) $request->query('status', 'all');
         $today = now()->startOfDay();
-        $hasPregnancyStatus = Schema::hasColumn('patients', 'pregnancy_status');
-        $hasEmsFlag = Schema::hasColumn('patients', 'is_ems_patient');
 
         $patients = Patient::query()
             ->where('hospital_id', $hospital->id)
@@ -34,8 +31,8 @@ class NursingController extends Controller
                     ->orWhere('last_name', 'like', $like)
                     ->orWhere('phone', 'like', $like);
             }))
-            ->when($hasPregnancyStatus && $statusFilter === 'pregnant', fn ($query) => $query->whereIn('pregnancy_status', ['Pregnant', 'High Risk Pregnancy', 'Postpartum']))
-            ->when($hasEmsFlag && $statusFilter === 'ems', fn ($query) => $query->where('is_ems_patient', true))
+            ->when($statusFilter === 'pregnant', fn ($query) => $query->whereIn('pregnancy_status', ['Pregnant', 'High Risk Pregnancy', 'Postpartum']))
+            ->when($statusFilter === 'ems', fn ($query) => $query->where('is_ems_patient', true))
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->paginate(12)
@@ -65,8 +62,8 @@ class NursingController extends Controller
                 'patientCount' => $hospitalPatients->count(),
                 'readingsToday' => (clone $vitalsToday)->count(),
                 'patientsMeasuredToday' => (clone $vitalsToday)->distinct('patient_id')->count('patient_id'),
-                'pregnantPatients' => $hasPregnancyStatus ? (clone $hospitalPatients)->whereIn('pregnancy_status', ['Pregnant', 'High Risk Pregnancy', 'Postpartum'])->count() : 0,
-                'emsPatients' => $hasEmsFlag ? (clone $hospitalPatients)->where('is_ems_patient', true)->count() : 0,
+                'pregnantPatients' => (clone $hospitalPatients)->whereIn('pregnancy_status', ['Pregnant', 'High Risk Pregnancy', 'Postpartum'])->count(),
+                'emsPatients' => (clone $hospitalPatients)->where('is_ems_patient', true)->count(),
             ],
             'canManage' => $request->user()->can('nursing.manage'),
         ]);
@@ -76,19 +73,10 @@ class NursingController extends Controller
     {
         $hospital = Hospital::default();
         $search = trim((string) $request->query('search', ''));
-        $hasPregnancyStatus = Schema::hasColumn('patients', 'pregnancy_status');
-        $hasEmsFlag = Schema::hasColumn('patients', 'is_ems_patient');
 
         $patients = Patient::query()
-            ->where('hospital_id', $hospital->id);
-
-        if ($hasEmsFlag) {
-            $patients->where('is_ems_patient', true);
-        } else {
-            $patients->whereRaw('0 = 1');
-        }
-
-        $patients = $patients
+            ->where('hospital_id', $hospital->id)
+            ->where('is_ems_patient', true)
             ->with(['latestVitalSign.recorder:id,name'])
             ->when($search !== '', fn ($query) => $query->where(function ($query) use ($search) {
                 $like = '%'.$search.'%';
@@ -109,10 +97,10 @@ class NursingController extends Controller
             ],
             'summary' => [
                 'total' => $patients->total(),
-                'pregnantPatients' => $hasPregnancyStatus ? Patient::query()
+                'pregnantPatients' => Patient::query()
                     ->where('hospital_id', $hospital->id)
                     ->whereIn('pregnancy_status', ['Pregnant', 'High Risk Pregnancy', 'Postpartum'])
-                    ->count() : 0,
+                    ->count(),
             ],
         ]);
     }

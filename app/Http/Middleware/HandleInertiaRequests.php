@@ -5,8 +5,8 @@ namespace App\Http\Middleware;
 use App\Models\Hospital;
 use App\Models\HospitalSetup;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Middleware;
-use Log;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -63,7 +63,10 @@ class HandleInertiaRequests extends Middleware
                 'permissions' => $user ? $user->getAllPermissions()->pluck('name') : [],
             ],
             // Hospital branding shown in the application shell.
-            'hospital' => $hospital ? $hospital->only(['id', 'name']) : null,
+            'hospital' => $hospital ? [
+                'id' => $hospital->id,
+                'name' => $setup?->name ?: $hospital->name,
+            ] : null,
             // Logo from HospitalSetup (new rich setup) or fallback to Hospital (legacy)
             'hospital_logo_url' => $setup?->logo_url ?? $hospital?->logo_url,
             'hospital_favicon_url' => $setup?->favicon_url ?? $activeHospital?->favicon_url,

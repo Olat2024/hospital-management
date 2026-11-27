@@ -19,17 +19,26 @@ const submit = () => form.post(route('staff.store'));
 
 <template>
     <AppLayout>
-        <div class="row justify-content-center mt-3">
-            <div class="col-lg-8">
-                <div class="card shadow-sm">
-                    <div class="card-header app-page-form-header d-flex justify-content-between align-items-center py-3">
-                        <div>
-                            <h1 class="app-page-form-title mb-0">Add staff member</h1>
-                            <p class="app-page-description">Create a login account and assign a staff role.</p>
+        <div class="clinical-page">
+            <div class="app-page-header">
+                <div class="app-page-header-content">
+                    <div class="app-page-eyebrow">People &amp; access</div>
+                    <h1 class="app-page-title">Add staff member</h1>
+                    <p class="app-page-description">Create a login account and assign a staff role.</p>
+                </div>
+                <div class="app-page-header-actions">
+                    <Link :href="route('staff.index')" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1" /> Back to staff
+                    </Link>
+                </div>
+            </div>
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="card clinical-form-card">
+                        <div class="card-header">
+                            <h2 class="h5 mb-0"><i class="bi bi-person-plus me-2" />Staff account details</h2>
                         </div>
-                        <Link :href="route('staff.index')" class="btn btn-sm btn-outline-secondary">Back to staff</Link>
-                    </div>
-                    <div class="card-body">
+                        <div class="card-body">
                         <div class="alert alert-info">
                             Add doctors from the <Link :href="route('doctors.index')">doctor directory</Link> so their clinical profile is created too.
                         </div>
@@ -77,6 +86,7 @@ const submit = () => form.post(route('staff.store'));
                         </form>
                     </div>
                 </div>
+            </div>
             </div>
         </div>
     </AppLayout>

@@ -2,6 +2,7 @@
 import { Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Pagination from '@/Components/Pagination.vue';
 
 const props = defineProps({
     patients: Object,
@@ -137,14 +138,8 @@ const bloodPressure = (vital) => {
                     </table>
                 </div>
 
-                <div v-if="patients.links && patients.links.length > 3" class="d-flex justify-content-center mt-3">
-                    <nav aria-label="EMS pagination">
-                        <ul class="pagination pagination-sm mb-0">
-                            <li v-for="link in patients.links" :key="link.label" class="page-item" :class="{ active: link.active, disabled: !link.url }">
-                                <Link class="page-link" :href="link.url || '#!'" :preserve-scroll="true" :preserve-state="true" v-html="link.label"></Link>
-                            </li>
-                        </ul>
-                    </nav>
+                <div v-if="patients.last_page > 1" class="mt-3">
+                    <Pagination :paginator="patients" aria-label="EMS pagination" :preserve-state="true" />
                 </div>
             </section>
         </div>

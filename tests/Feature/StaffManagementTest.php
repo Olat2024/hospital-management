@@ -78,7 +78,7 @@ class StaffManagementTest extends TestCase
             $pharmacy->permissions->pluck('name')->all()
         );
         $this->assertEqualsCanonicalizing(
-            ['patients.view', 'medical-records.view'],
+            ['patients.view', 'medical-records.view', 'lab.view', 'lab.manage'],
             $labTechnician->permissions->pluck('name')->all()
         );
         $this->assertEqualsCanonicalizing(
@@ -86,6 +86,7 @@ class StaffManagementTest extends TestCase
                 'patients.view', 'appointments.view', 'medical-records.view',
                 'admissions.view', 'admissions.manage',
                 'nursing.view', 'nursing.manage',
+                'antenatal.view', 'antenatal.manage',
             ],
             $nurse->permissions->pluck('name')->all()
         );

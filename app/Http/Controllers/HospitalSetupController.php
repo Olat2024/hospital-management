@@ -4,15 +4,40 @@ namespace App\Http\Controllers;
 
 use App\Models\Hospital;
 use App\Models\HospitalSetup;
+use App\Services\ImageUploadService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
-use RuntimeException;
 
 class HospitalSetupController extends Controller
 {
+    private const SHARED_FIELDS = [
+        'primary_color',
+        'secondary_color',
+        'name',
+        'tagline',
+        'address',
+        'city',
+        'state',
+        'country',
+        'postal_code',
+        'phone',
+        'email',
+        'website',
+        'social_links',
+        'footer_text',
+        'timezone',
+        'currency',
+        'locale',
+    ];
+
+    public function __construct(private readonly ImageUploadService $images)
+    {
+    }
+
     public function edit(): Response
     {
         $hospital = Hospital::default();
@@ -25,13 +50,14 @@ class HospitalSetupController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
-        $setup = HospitalSetup::forHospital(Hospital::default()->id);
+        $hospital = Hospital::default();
+        $setup = HospitalSetup::forHospital($hospital->id);
 
         $validated = $request->validate([
             // Branding
-            'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:2048'],
+            'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'remove_logo' => ['nullable', 'boolean'],
-            'favicon' => ['nullable', 'image', 'mimes:png,ico,svg', 'max:512'],
+            'favicon' => ['nullable', 'file', 'mimes:png,ico', 'max:512'],
             'remove_favicon' => ['nullable', 'boolean'],
             'primary_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'secondary_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
@@ -57,42 +83,27 @@ class HospitalSetupController extends Controller
             'footer_text' => ['nullable', 'string', 'max:1000'],
 
             // Settings
-            'timezone' => ['nullable', 'string', 'max:64'],
+            'timezone' => ['nullable', 'string', 'max:64', 'timezone'],
             'currency' => ['nullable', 'string', 'size:3'],
             'locale' => ['nullable', 'string', 'max:5'],
         ]);
 
-        // ---- Logo ----
-        if ($request->hasFile('logo')) {
-            $logo = $request->file('logo')->store('hospitals', config('filesystems.uploads_disk', 'public'));
-            if ($logo === false) {
-                throw new RuntimeException('Failed to store the hospital logo.');
-            }
-
-            if ($setup->logo) {
-                Storage::disk(config('filesystems.uploads_disk', 'public'))->delete($setup->logo);
-            }
-            $setup->logo = $logo;
-        } elseif (! empty($validated['remove_logo']) && $setup->logo) {
-            Storage::disk(config('filesystems.uploads_disk', 'public'))->delete($setup->logo);
-            $setup->logo = null;
-        }
-
-        // ---- Favicon ----
-        if ($request->hasFile('favicon')) {
-            $favicon = $request->file('favicon')->store('hospitals', config('filesystems.uploads_disk', 'public'));
-            if ($favicon === false) {
-                throw new RuntimeException('Failed to store the hospital favicon.');
-            }
-
-            if ($setup->favicon) {
-                Storage::disk(config('filesystems.uploads_disk', 'public'))->delete($setup->favicon);
-            }
-            $setup->favicon = $favicon;
-        } elseif (! empty($validated['remove_favicon']) && $setup->favicon) {
-            Storage::disk(config('filesystems.uploads_disk', 'public'))->delete($setup->favicon);
-            $setup->favicon = null;
-        }
+        $setup->logo = $this->images->syncImage(
+            $request,
+            'logo',
+            'hospitals',
+            $setup->logo,
+            $request->boolean('remove_logo'),
+            'Failed to store the hospital logo.'
+        );
+        $setup->favicon = $this->images->syncImage(
+            $request,
+            'favicon',
+            'hospitals',
+            $setup->favicon,
+            $request->boolean('remove_favicon'),
+            'Failed to store the hospital favicon.'
+        );
 
         unset(
             $validated['logo'],
@@ -101,7 +112,6 @@ class HospitalSetupController extends Controller
             $validated['remove_favicon']
         );
 
-        // social_links is validated as JSON string
         if (! empty($validated['social_links'])) {
             $decoded = json_decode($validated['social_links'], true);
             $validated['social_links'] = is_array($decoded) ? $decoded : null;
@@ -109,8 +119,14 @@ class HospitalSetupController extends Controller
             $validated['social_links'] = null;
         }
 
-        $setup->fill($validated);
-        $setup->save();
+        DB::transaction(function () use ($setup, $hospital, $validated) {
+            $setup->fill($validated);
+            $setup->save();
+
+            // Keep the core Hospital record aligned so billing currency and timezones stay in sync.
+            $hospital->fill(Arr::only($validated, self::SHARED_FIELDS));
+            $hospital->save();
+        });
 
         return redirect()
             ->route('settings.hospital-setup.edit')

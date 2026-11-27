@@ -3,6 +3,7 @@
 import { Link, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Pagination from '@/Components/Pagination.vue';
 import { confirmAction } from '@/Composables/useSweetAlert';
 
 const props = defineProps({
@@ -296,22 +297,14 @@ const summaryCards = computed(() => [
                 </table>
             </div>
 
-            <div class="card-footer bg-white d-flex justify-content-between align-items-center py-3" v-if="appointments.last_page > 1">
-                <span class="small text-muted">
-                    Showing {{ appointments.from }}&ndash;{{ appointments.to }} of {{ appointments.total }}
-                </span>
-                <div class="btn-group">
-                    <button
-                        v-for="(link, i) in appointments.links"
-                        :key="i"
-                        type="button"
-                        class="btn btn-sm"
-                        :class="link.active ? 'btn-primary' : 'btn-outline-secondary'"
-                        :disabled="!link.url"
-                        @click="applyFilters(pageFrom(link.url))"
-                        v-html="link.label"
-                    ></button>
-                </div>
+            <div class="card-footer bg-white py-3" v-if="appointments.last_page > 1">
+                <Pagination
+                    :paginator="appointments"
+                    aria-label="Appointment pagination"
+                    show-summary
+                    button-mode
+                    @navigate="applyFilters(pageFrom($event))"
+                />
             </div>
         </div>
 

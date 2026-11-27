@@ -25,15 +25,26 @@ const submit = () => {
 
 <template>
     <AppLayout>
-        <div class="row justify-content-center mt-4">
-            <div class="col-md-9">
-                <div class="card shadow-sm">
-                    <div class="card-header app-page-form-header d-flex justify-content-between align-items-center py-3">
-                        <h1 class="app-page-form-title mb-0"><i class="bi bi-person-badge me-2"></i>Add Doctor</h1>
-                        <Link :href="route('doctors.index')" class="btn btn-sm btn-outline-secondary">Back to list</Link>
-                    </div>
-
-                    <div class="card-body">
+        <div class="clinical-page">
+            <div class="app-page-header">
+                <div class="app-page-header-content">
+                    <div class="app-page-eyebrow">Care team</div>
+                    <h1 class="app-page-title">Add doctor</h1>
+                    <p class="app-page-description">Create a clinical doctor profile and link or provision their portal login.</p>
+                </div>
+                <div class="app-page-header-actions">
+                    <Link :href="route('doctors.index')" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1" /> Back to list
+                    </Link>
+                </div>
+            </div>
+            <div class="row justify-content-center">
+                <div class="col-lg-9">
+                    <div class="card clinical-form-card">
+                        <div class="card-header">
+                            <h2 class="h5 mb-0"><i class="bi bi-person-badge me-2" />Doctor profile &amp; credentials</h2>
+                        </div>
+                        <div class="card-body">
                         <form @submit.prevent="submit">
                             <h6 class="border-bottom pb-2 text-muted">Profile</h6>
                             <div class="row mb-3">
@@ -158,6 +169,7 @@ const submit = () => {
                         </form>
                     </div>
                 </div>
+            </div>
             </div>
         </div>
     </AppLayout>

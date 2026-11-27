@@ -179,6 +179,7 @@ class InvoiceController extends Controller
                 ->where('hospital_id', $hospital->id)
                 ->orderBy('last_name')
                 ->orderBy('first_name')
+                ->limit(100)
                 ->get(['id', 'mrn', 'first_name', 'last_name']),
             'currency' => $hospital->currency ?: 'USD',
         ]);

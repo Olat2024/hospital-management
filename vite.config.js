@@ -12,6 +12,25 @@ export default defineConfig({
             },
         },
     },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks(id) {
+                    if (id.includes('node_modules')) {
+                        if (id.includes('bootstrap') || id.includes('@popperjs')) {
+                            return 'vendor-bootstrap';
+                        }
+                        if (id.includes('sweetalert2')) {
+                            return 'vendor-sweetalert';
+                        }
+                        if (id.includes('vue') || id.includes('@inertiajs')) {
+                            return 'vendor-vue';
+                        }
+                    }
+                },
+            },
+        },
+    },
     plugins: [
         laravel({
             input: 'resources/js/app.js',

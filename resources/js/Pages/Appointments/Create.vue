@@ -1,6 +1,7 @@
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PatientSearchSelect from '@/Components/PatientSearchSelect.vue';
 
 defineProps({
     patients: Array,
@@ -45,13 +46,14 @@ const submit = () => {
                             <div class="row mb-3">
                                 <div class="col-md-6">
                                     <label for="patient_id" class="form-label">Select Patient</label>
-                                    <select class="form-select" :class="{ 'is-invalid': form.errors.patient_id }" id="patient_id" v-model="form.patient_id">
-                                        <option value="" disabled>Choose a patient...</option>
-                                        <option v-for="patient in patients" :key="patient.id" :value="patient.id">
-                                            {{ patient.last_name }}, {{ patient.first_name }}
-                                        </option>
-                                    </select>
-                                    <div class="invalid-feedback" v-if="form.errors.patient_id">{{ form.errors.patient_id }}</div>
+                                    <PatientSearchSelect
+                                        id="patient_id"
+                                        v-model="form.patient_id"
+                                        :patients="patients"
+                                        placeholder="Choose a patient..."
+                                        empty-text="Register a patient before booking an appointment."
+                                        :error="form.errors.patient_id"
+                                    />
                                 </div>
                                 <div class="col-md-6">
                                     <label for="doctor_id" class="form-label">Select Doctor</label>

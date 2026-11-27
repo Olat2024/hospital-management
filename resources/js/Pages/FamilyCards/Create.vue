@@ -21,17 +21,19 @@ const submit = () => props.card
 <template>
     <AppLayout>
         <div class="clinical-page">
-            <header class="clinical-page-heading">
-                <div>
-                    <div class="clinical-eyebrow">Patient directory</div>
-                    <h1 class="clinical-page-title">{{ card ? 'Edit family card' : 'Register a family card' }}</h1>
-                    <p class="clinical-page-subtitle">
+            <header class="app-page-header">
+                <div class="app-page-header-content">
+                    <div class="app-page-eyebrow">Patient directory</div>
+                    <h1 class="app-page-title">{{ card ? 'Edit family card' : 'Register a family card' }}</h1>
+                    <p class="app-page-description">
                         {{ card ? `Update details for family card ${card.card_number}.` : 'Create one household card, then assign it to patients as they are registered.' }}
                     </p>
                 </div>
-                <Link :href="route('patients.create')" class="btn btn-outline-secondary">
-                    <i class="bi bi-arrow-left me-1"></i> Registration options
-                </Link>
+                <div class="app-page-header-actions">
+                    <Link :href="route('patients.create')" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i> Registration options
+                    </Link>
+                </div>
             </header>
 
             <div class="row justify-content-center">

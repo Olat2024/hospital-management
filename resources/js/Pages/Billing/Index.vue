@@ -1,6 +1,7 @@
 <script setup>
 import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Pagination from '@/Components/Pagination.vue';
 
 const props = defineProps({
     invoices: Object,
@@ -124,19 +125,8 @@ const search = (event) => {
                 </table>
             </div>
 
-            <div v-if="invoices.links.length > 3" class="card-footer bg-white">
-                <div class="d-flex flex-wrap gap-2 justify-content-center">
-                    <template v-for="(link, index) in invoices.links" :key="index">
-                        <Link
-                            v-if="link.url"
-                            :href="link.url"
-                            class="btn btn-sm"
-                            :class="link.active ? 'btn-primary' : 'btn-outline-secondary'"
-                            v-html="link.label"
-                        />
-                        <span v-else class="btn btn-sm btn-outline-secondary disabled" v-html="link.label" />
-                    </template>
-                </div>
+            <div v-if="invoices.last_page > 1" class="card-footer bg-white">
+                <Pagination :paginator="invoices" aria-label="Invoice pagination" />
             </div>
         </div>
         </div>

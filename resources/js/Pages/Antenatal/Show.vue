@@ -27,6 +27,7 @@ const form = useForm({
 });
 
 const dateLabel = (value) => value ? new Date(value).toLocaleDateString() : '—';
+const printCard = () => window.print();
 const submitVisit = () => form.post(route('antenatal.visits.store', props.card.id), {
     preserveScroll: true,
     onSuccess: () => form.reset(),
@@ -36,19 +37,22 @@ const submitVisit = () => form.post(route('antenatal.visits.store', props.card.i
 <template>
     <AppLayout>
         <div class="clinical-page">
-            <header class="clinical-page-heading">
-                <div>
-                    <div class="clinical-eyebrow">Maternal care</div>
-                    <h1 class="clinical-page-title">ANC card</h1>
-                    <p class="clinical-page-subtitle">
+            <header class="app-page-header">
+                <div class="app-page-header-content">
+                    <div class="app-page-eyebrow">Maternal care</div>
+                    <h1 class="app-page-title">ANC card</h1>
+                    <p class="app-page-description">
                         {{ card.patient.last_name }}, {{ card.patient.first_name }} · <code>{{ card.patient.mrn }}</code>
                     </p>
                 </div>
-                <div class="d-flex gap-2">
+                <div class="app-page-header-actions no-print">
+                    <button type="button" class="btn btn-outline-primary" @click="printCard">
+                        <i class="bi bi-printer me-1"></i> Print card
+                    </button>
                     <Link :href="route('antenatal.index')" class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-left me-1"></i> All ANC cards
                     </Link>
-                    <Link :href="route('patients.show', card.patient.id)" class="btn btn-outline-primary">Patient chart</Link>
+                    <Link :href="route('patients.show', card.patient.id)" class="btn btn-primary">Patient chart</Link>
                 </div>
             </header>
 

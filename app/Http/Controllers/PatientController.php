@@ -4,9 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Hospital;
 use App\Models\Patient;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -68,6 +69,34 @@ class PatientController extends Controller
         ]);
     }
 
+    /**
+     * Lightweight JSON patient search for booking, billing, and ANC forms.
+     */
+    public function search(Request $request): JsonResponse
+    {
+        $hospitalId = Hospital::default()->id;
+        $term = trim((string) $request->query('q', ''));
+        $gender = $request->query('gender');
+
+        $patients = Patient::query()
+            ->where('hospital_id', $hospitalId)
+            ->when(in_array($gender, ['Male', 'Female', 'Other'], true), fn ($q) => $q->where('gender', $gender))
+            ->when($term !== '', function ($q) use ($term) {
+                $like = '%'.$term.'%';
+                $q->where(fn ($sub) => $sub
+                    ->where('mrn', 'like', $like)
+                    ->orWhere('first_name', 'like', $like)
+                    ->orWhere('last_name', 'like', $like)
+                    ->orWhere('phone', 'like', $like));
+            })
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->limit(25)
+            ->get(['id', 'mrn', 'first_name', 'last_name', 'dob', 'phone', 'address']);
+
+        return response()->json($patients);
+    }
+
     public function create()
     {
         return Inertia::render('Patients/Create', [
@@ -102,7 +131,8 @@ class PatientController extends Controller
 
     public function store(Request $request)
     {
-        $rules = [
+        $hospital = Hospital::default();
+        $validated = $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'dob' => 'required|date|before:today',
@@ -121,16 +151,11 @@ class PatientController extends Controller
             'family_card_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('family_cards', 'id')->where('hospital_id', Hospital::default()->id),
+                Rule::exists('family_cards', 'id')->where('hospital_id', $hospital->id),
             ],
             'family_relationship' => 'nullable|string|max:100',
-        ];
-
-        if (Schema::hasColumn('patients', 'is_ems_patient')) {
-            $rules['is_ems_patient'] = 'nullable|boolean';
-        }
-
-        $validated = $request->validate($rules);
+            'is_ems_patient' => 'nullable|boolean',
+        ]);
 
         // The schema stores a single address, so fold the location fields into it.
         $validated['address'] = collect([
@@ -141,12 +166,20 @@ class PatientController extends Controller
 
         unset($validated['city'], $validated['state']);
 
-        $patientData = $validated + [
-            'hospital_id' => Hospital::default()->id,
-            'mrn' => self::nextMrn(),
-        ];
-
-        $patient = Patient::create($patientData);
+        $patient = DB::transaction(function () use ($validated, $hospital) {
+            for ($attempt = 0; $attempt < 5; $attempt++) {
+                try {
+                    return Patient::create($validated + [
+                        'hospital_id' => $hospital->id,
+                        'mrn' => self::nextMrn(),
+                    ]);
+                } catch (UniqueConstraintViolationException $e) {
+                    if ($attempt === 4) {
+                        throw $e;
+                    }
+                }
+            }
+        });
 
         return redirect()->route('patients.show', $patient)
             ->with('success', 'Patient registered successfully.');
@@ -173,7 +206,7 @@ class PatientController extends Controller
             ->where('hospital_id', Hospital::default()->id)
             ->findOrFail($patient);
 
-        $rules = [
+        $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'dob' => ['required', 'date', 'before:today'],
@@ -193,19 +226,10 @@ class PatientController extends Controller
                 Rule::exists('family_cards', 'id')->where('hospital_id', $patient->hospital_id),
             ],
             'family_relationship' => ['nullable', 'string', 'max:100'],
-        ];
-
-        if (Schema::hasColumn('patients', 'pregnancy_status')) {
-            $rules['pregnancy_status'] = ['nullable', 'string', 'in:Not Pregnant,Pregnant,High Risk Pregnancy,Postpartum'];
-        }
-        if (Schema::hasColumn('patients', 'is_ems_patient')) {
-            $rules['is_ems_patient'] = ['nullable', 'boolean'];
-        }
-        if (Schema::hasColumn('patients', 'pregnancy_notes')) {
-            $rules['pregnancy_notes'] = ['nullable', 'string', 'max:2000'];
-        }
-
-        $validated = $request->validate($rules);
+            'pregnancy_status' => ['nullable', 'string', 'in:Not Pregnant,Pregnant,High Risk Pregnancy,Postpartum'],
+            'is_ems_patient' => ['nullable', 'boolean'],
+            'pregnancy_notes' => ['nullable', 'string', 'max:2000'],
+        ]);
         $patient->update($validated);
 
         return redirect()->route('patients.show', $patient)
@@ -228,15 +252,7 @@ class PatientController extends Controller
                 return false;
             }
 
-            $hasHistory = $patient->appointments()->exists()
-                || $patient->medicalRecords()->exists()
-                || $patient->vitalSigns()->exists()
-                || $patient->invoices()->exists()
-                || $patient->admissions()->exists()
-                || $patient->referrals()->exists()
-                || $patient->antenatalCards()->exists();
-
-            if ($hasHistory) {
+            if ($patient->hasClinicalHistory()) {
                 $patient->delete();
 
                 return true;
@@ -282,6 +298,7 @@ class PatientController extends Controller
         $canViewMedicalRecords = $request->user()->can('medical-records.view');
         $canViewVitals = $request->user()->can('nursing.view');
         $canViewAnc = $request->user()->can('antenatal.view');
+        $canViewLab = $request->user()->can('lab.view');
         $relations = [];
 
         if ($canViewAppointments) {
@@ -290,8 +307,9 @@ class PatientController extends Controller
         }
 
         if ($canViewMedicalRecords) {
-            $relations['medicalRecords.doctor'] = fn ($query) => $query->orderByDesc('created_at');
-            $relations['medicalRecords.recordedBy'] = fn ($query) => $query->select('id', 'name');
+            $relations['medicalRecords'] = fn ($query) => $query
+                ->orderByDesc('created_at')
+                ->with(['doctor', 'recordedBy:id,name']);
             $relations['referrals'] = fn ($query) => $query->orderByDesc('referred_at')->with('doctor');
         }
 
@@ -310,24 +328,25 @@ class PatientController extends Controller
         if ($canViewAnc) {
             $relations['antenatalCards'] = fn ($query) => $query->orderByDesc('booking_date');
         }
+        if ($canViewLab) {
+            $relations['labOrders'] = fn ($query) => $query
+                ->orderByDesc('ordered_at')
+                ->with(['orderedBy:id,name', 'processedBy:id,name']);
+        }
 
         $patient->load($relations);
 
         return Inertia::render('Patients/Show', [
             'patient' => $patient,
             'hospitalTimezone' => $hospital->timezone ?: config('app.timezone'),
-            'hasClinicalHistory' => $patient->appointments()->exists()
-                || $patient->medicalRecords()->exists()
-                || $patient->vitalSigns()->exists()
-                || $patient->invoices()->exists()
-                || $patient->admissions()->exists()
-                || $patient->referrals()->exists()
-                || $patient->antenatalCards()->exists(),
+            'hasClinicalHistory' => $patient->hasClinicalHistory(),
             'can' => [
                 'viewAppointments' => $canViewAppointments,
                 'viewMedicalRecords' => $canViewMedicalRecords,
                 'viewVitals' => $canViewVitals,
                 'viewAnc' => $canViewAnc,
+                'viewLab' => $canViewLab,
+                'manageLab' => $request->user()->can('lab.manage'),
                 'manageAnc' => $request->user()->can('antenatal.manage'),
                 'managePatient' => $request->user()->can('patients.manage'),
                 'manageVitals' => $request->user()->can('nursing.manage'),
@@ -351,8 +370,10 @@ class PatientController extends Controller
     {
         $prefix = 'MRN-'.now()->format('ymd').'-';
 
-        $last = Patient::where('mrn', 'like', $prefix.'%')
+        $last = Patient::withTrashed()
+            ->where('mrn', 'like', $prefix.'%')
             ->orderByDesc('mrn')
+            ->lockForUpdate()
             ->value('mrn');
 
         $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;

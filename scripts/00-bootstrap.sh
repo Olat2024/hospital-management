@@ -17,9 +17,8 @@ export APP_NAME="${APP_NAME:-Hospital Management}"
 export APP_ENV="${APP_ENV:-production}"
 export APP_DEBUG="${APP_DEBUG:-false}"
 export LOG_CHANNEL="${LOG_CHANNEL:-stderr}"
-export SESSION_DRIVER="file"
-export CACHE_STORE="${CACHE_STORE:-file}"
 export SESSION_DRIVER="${SESSION_DRIVER:-file}"
+export CACHE_STORE="${CACHE_STORE:-file}"
 
 # 2. Check vendor directory
 if [[ ! -f vendor/autoload.php ]]; then
@@ -52,8 +51,11 @@ php artisan db:seed --class=PermissionSeeder --force
 echo "=== [bootstrap] Seeding super admin ==="
 php artisan db:seed --class=SuperAdminSeeder --force
 
-# 7. Clear permission cache
+# 7. Clear permission cache and warm framework caches
 php artisan permission:cache-reset
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
 
 # 8. Verify seeded data (using direct php scripts instead of tinker)
 echo "=== [bootstrap] Verifying seeded data ==="

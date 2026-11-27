@@ -2,17 +2,23 @@
 import { computed, ref } from 'vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Pagination from '@/Components/Pagination.vue';
+import { confirmAction } from '@/Composables/useSweetAlert';
 
 const props = defineProps({
     medicines: Object,
+    dispensableMedicines: { type: Array, default: () => [] },
     prescriptions: Object,
+    stockMovements: { type: Array, default: () => [] },
     filters: Object,
     summary: Object,
     currency: String,
     canManage: Boolean,
 });
 
-const search = ref(props.filters.search);
+const search = ref(props.filters.search || '');
+const medicineSearch = ref(props.filters.medicine_search || '');
+const prescriptionSearch = ref(props.filters.prescription_search || '');
 const activePrescription = ref(null);
 const medicineForm = useForm({
     name: '',
@@ -41,7 +47,7 @@ const selectedMedicine = computed(() =>
     props.medicines.data.find((medicine) => medicine.id === Number(stockForm.medicine_id))
 );
 const medicineStockFor = (medicineId) =>
-    props.medicines.data.find((medicine) => medicine.id === Number(medicineId));
+    props.dispensableMedicines.find((medicine) => medicine.id === Number(medicineId));
 const remainingAfterDispense = (index) => {
     const item = dispenseForm.items[index];
     const medicine = medicineStockFor(item.medicine_id);
@@ -62,9 +68,23 @@ const stockLevelPercent = (medicine) => medicine.reorder_level > 0
     ? Math.min(100, Math.round((medicine.stock_quantity / medicine.reorder_level) * 100))
     : medicine.stock_quantity > 0 ? 100 : 0;
 
-const applySearch = () => router.get(route('pharmacy.index'), {
-    search: search.value || undefined,
-}, { preserveState: true, replace: true });
+const applySearch = () => {
+    medicineSearch.value = search.value;
+    prescriptionSearch.value = search.value;
+    router.get(route('pharmacy.index'), {
+        search: search.value || undefined,
+    }, { preserveState: true, replace: true });
+};
+
+const applyMedicineSearch = () => router.get(route('pharmacy.index'), {
+    medicine_search: medicineSearch.value || undefined,
+    prescription_search: prescriptionSearch.value || undefined,
+}, { preserveState: true, preserveScroll: true, replace: true });
+
+const applyPrescriptionSearch = () => router.get(route('pharmacy.index'), {
+    medicine_search: medicineSearch.value || undefined,
+    prescription_search: prescriptionSearch.value || undefined,
+}, { preserveState: true, preserveScroll: true, replace: true });
 
 const addMedicine = () => medicineForm.post(route('pharmacy.medicines.store'), {
     preserveScroll: true,
@@ -123,6 +143,18 @@ const dispense = (recordId) => dispenseForm.post(route('pharmacy.dispense', reco
         dispenseForm.reset();
     },
 });
+
+const archiveMedicine = async (medicine) => {
+    const confirmed = await confirmAction({
+        title: `Remove ${medicine.name} from active inventory?`,
+        text: 'Historical dispensing and stock movement audit records will be preserved.',
+        confirmButtonText: 'Remove medicine',
+    });
+
+    if (confirmed) {
+        router.patch(route('pharmacy.medicines.deactivate', medicine.id), {}, { preserveScroll: true });
+    }
+};
 
 const medicineLabel = (medicine) =>
     [medicine.name, medicine.strength, medicine.dosage_form].filter(Boolean).join(' · ');
@@ -291,9 +323,16 @@ const analyticsCards = computed(() => [
         </div>
 
         <div class="card shadow-sm mb-4">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+            <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
                 <h5 class="mb-0">Medicine inventory</h5>
-                <span class="small text-muted">{{ medicines.total }} items</span>
+                <div class="d-flex align-items-center gap-2">
+                    <form class="d-flex gap-1" @submit.prevent="applyMedicineSearch">
+                        <label for="medicine-inventory-search" class="visually-hidden">Filter medicines</label>
+                        <input id="medicine-inventory-search" v-model="medicineSearch" class="form-control form-control-sm" placeholder="Filter medicines">
+                        <button class="btn btn-sm btn-outline-secondary" type="submit" aria-label="Filter medicines"><i class="bi bi-search" /></button>
+                    </form>
+                    <span class="small text-muted text-nowrap">{{ medicines.total }} items</span>
+                </div>
             </div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
@@ -326,6 +365,9 @@ const analyticsCards = computed(() => [
                                 <button type="button" class="btn btn-sm btn-outline-primary" @click="openStock(medicine)">
                                     <i class="bi bi-box-seam me-1"></i> Receive stock
                                 </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" title="Remove from active inventory" @click="archiveMedicine(medicine)">
+                                    <i class="bi bi-archive" />
+                                </button>
                                 </div>
                             </td>
                         </tr>
@@ -335,10 +377,8 @@ const analyticsCards = computed(() => [
                     </tbody>
                 </table>
             </div>
-            <div v-if="medicines.prev_page_url || medicines.next_page_url" class="card-footer bg-white d-flex justify-content-between">
-                <Link v-if="medicines.prev_page_url" :href="medicines.prev_page_url" class="btn btn-sm btn-outline-secondary">Previous medicines</Link>
-                <span v-else />
-                <Link v-if="medicines.next_page_url" :href="medicines.next_page_url" class="btn btn-sm btn-outline-secondary">More medicines</Link>
+            <div v-if="medicines.last_page > 1" class="card-footer bg-white">
+                <Pagination :paginator="medicines" aria-label="Medicine inventory pagination" show-summary />
             </div>
         </div>
 
@@ -367,12 +407,19 @@ const analyticsCards = computed(() => [
         </div>
 
         <div class="card shadow-sm">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+            <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
                 <div>
                     <h5 class="mb-0">Prescriptions</h5>
                     <p class="small text-muted mb-0">Confirm medicine, strength, form, and quantity against the doctor's prescription before dispensing.</p>
                 </div>
-                <span class="small text-muted">{{ prescriptions.total }} records</span>
+                <div class="d-flex align-items-center gap-2">
+                    <form class="d-flex gap-1" @submit.prevent="applyPrescriptionSearch">
+                        <label for="prescription-patient-search" class="visually-hidden">Filter prescriptions by patient</label>
+                        <input id="prescription-patient-search" v-model="prescriptionSearch" class="form-control form-control-sm" placeholder="Filter by patient or MRN">
+                        <button class="btn btn-sm btn-outline-secondary" type="submit" aria-label="Filter prescriptions"><i class="bi bi-search" /></button>
+                    </form>
+                    <span class="small text-muted text-nowrap">{{ prescriptions.total }} records</span>
+                </div>
             </div>
             <div class="list-group list-group-flush">
                 <div v-for="prescription in prescriptions.data" :key="prescription.id" class="list-group-item p-3">
@@ -409,7 +456,7 @@ const analyticsCards = computed(() => [
                                 <label :for="`dispense-medicine-${index}`" class="form-label">Medicine</label>
                                 <select :id="`dispense-medicine-${index}`" v-model="item.medicine_id" class="form-select" :class="{ 'is-invalid': dispenseForm.errors[`items.${index}.medicine_id`] }" required>
                                     <option value="" disabled>Select medicine in stock</option>
-                                    <option v-for="medicine in medicines.data.filter((entry) => entry.stock_quantity > 0)" :key="medicine.id" :value="medicine.id" :disabled="dispenseForm.items.some((other, otherIndex) => otherIndex !== index && Number(other.medicine_id) === medicine.id)">
+                                    <option v-for="medicine in dispensableMedicines" :key="medicine.id" :value="medicine.id" :disabled="dispenseForm.items.some((other, otherIndex) => otherIndex !== index && Number(other.medicine_id) === medicine.id)">
                                         {{ medicineLabel(medicine) }} — {{ formatMoney(medicine.unit_price) }} per unit · {{ medicine.stock_quantity }} in stock
                                     </option>
                                 </select>
@@ -457,7 +504,7 @@ const analyticsCards = computed(() => [
                             <div class="invalid-feedback">{{ dispenseForm.errors.notes }}</div>
                         </div>
                         <div class="d-flex justify-content-end">
-                            <button type="submit" class="btn btn-success" :disabled="dispenseForm.processing || medicines.data.every((medicine) => medicine.stock_quantity === 0)">
+                            <button type="submit" class="btn btn-success" :disabled="dispenseForm.processing || dispensableMedicines.length === 0">
                                 <span v-if="dispenseForm.processing" class="spinner-border spinner-border-sm me-1" aria-hidden="true" />
                                 Confirm dispensing
                             </button>
@@ -468,10 +515,51 @@ const analyticsCards = computed(() => [
                     No prescriptions found.
                 </div>
             </div>
-            <div v-if="prescriptions.prev_page_url || prescriptions.next_page_url" class="card-footer bg-white d-flex justify-content-between">
-                <Link v-if="prescriptions.prev_page_url" :href="prescriptions.prev_page_url" class="btn btn-sm btn-outline-secondary">Previous prescriptions</Link>
-                <span v-else />
-                <Link v-if="prescriptions.next_page_url" :href="prescriptions.next_page_url" class="btn btn-sm btn-outline-secondary">More prescriptions</Link>
+            <div v-if="prescriptions.last_page > 1" class="card-footer bg-white">
+                <Pagination :paginator="prescriptions" aria-label="Prescriptions pagination" show-summary />
+            </div>
+        </div>
+
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                <div>
+                    <h5 class="mb-0">Recent stock movements</h5>
+                    <p class="small text-muted mb-0">Audit log of the latest 25 stock receipts and dispensations.</p>
+                </div>
+                <span class="small text-muted">{{ stockMovements.length }} entries</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Medicine</th>
+                            <th>Type</th>
+                            <th class="text-end">Quantity</th>
+                            <th>Reference</th>
+                            <th>Recorded by</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="movement in stockMovements" :key="movement.id">
+                            <td class="text-nowrap small">{{ new Date(movement.recorded_at).toLocaleString() }}</td>
+                            <td class="fw-semibold">{{ movement.medicine ? medicineLabel(movement.medicine) : '—' }}</td>
+                            <td>
+                                <span class="badge text-capitalize" :class="movement.type === 'received' ? 'bg-success' : 'bg-info text-dark'">
+                                    {{ movement.type }}
+                                </span>
+                            </td>
+                            <td class="text-end fw-semibold">
+                                {{ movement.type === 'received' ? '+' : '−' }}{{ movement.quantity }}
+                            </td>
+                            <td class="small text-muted">{{ movement.reference || '—' }}</td>
+                            <td class="small">{{ movement.recorded_by?.name || 'System' }}</td>
+                        </tr>
+                        <tr v-if="stockMovements.length === 0">
+                            <td colspan="6" class="text-center py-4 text-muted">No stock movements recorded yet.</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </AppLayout>

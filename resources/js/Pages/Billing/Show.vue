@@ -1,7 +1,12 @@
 <script setup>
-import { Link, router, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { confirmAction } from '@/Composables/useSweetAlert';
+
+const page = usePage();
+const hospital = computed(() => page.props.hospital);
+const hospitalLogoUrl = computed(() => page.props.hospital_logo_url);
 
 const props = defineProps({
     invoice: Object,
@@ -27,6 +32,8 @@ const statusClass = {
     void: 'bg-secondary',
 };
 
+const printInvoice = () => window.print();
+
 const recordPayment = () => paymentForm.post(route('billing.payments.store', props.invoice.id), {
     preserveScroll: true,
 });
@@ -46,16 +53,35 @@ const voidInvoice = async () => {
 <template>
     <AppLayout>
         <div class="clinical-page invoice-detail">
-        <div class="clinical-page-heading">
-            <div>
-                <div class="clinical-eyebrow">Invoice details</div>
+        <div class="print-only border-bottom pb-3 mb-4">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-3">
+                    <img v-if="hospitalLogoUrl" :src="hospitalLogoUrl" :alt="hospital?.name" style="height: 48px; width: 48px; object-fit: contain;">
+                    <div>
+                        <div class="h5 fw-bold mb-0">{{ hospital?.name || 'Hospital Management' }}</div>
+                        <div class="small text-muted">Official Patient Invoice</div>
+                    </div>
+                </div>
+                <div class="text-end small">
+                    <div class="fw-bold">{{ invoice.invoice_number }}</div>
+                    <div>Issued: {{ invoice.issued_at }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="app-page-header">
+            <div class="app-page-header-content">
+                <div class="app-page-eyebrow">Invoice details</div>
                 <div class="d-flex align-items-center gap-2">
-                    <h1 class="clinical-page-title mb-0">{{ invoice.invoice_number }}</h1>
+                    <h1 class="app-page-title mb-0">{{ invoice.invoice_number }}</h1>
                     <span class="badge text-capitalize" :class="statusClass[invoice.status]">{{ invoice.status }}</span>
                 </div>
-                <p class="text-muted mb-0">Issued {{ invoice.issued_at }}<span v-if="invoice.due_at"> · Due {{ invoice.due_at }}</span></p>
+                <p class="app-page-description">Issued {{ invoice.issued_at }}<span v-if="invoice.due_at"> · Due {{ invoice.due_at }}</span></p>
             </div>
-            <div class="d-flex gap-2">
+            <div class="app-page-header-actions no-print">
+                <button type="button" class="btn btn-outline-primary" @click="printInvoice">
+                    <i class="bi bi-printer me-1"></i> Print receipt
+                </button>
                 <button v-if="can.void" type="button" class="btn btn-outline-danger" @click="voidInvoice">
                     <i class="bi bi-x-circle me-1"></i> Void invoice
                 </button>

@@ -71,11 +71,19 @@ body {
 
 .clinical-page-heading {
     align-items: end;
+    background:
+        radial-gradient(ellipse at 92% 10%, rgb(22 143 148 / 10%), transparent 34%),
+        linear-gradient(110deg, #fff 0%, #f5fafb 100%);
+    border: 1px solid var(--hospital-border);
+    border-left: 4px solid #168b89;
+    border-radius: 0.9rem;
+    box-shadow: 0 5px 20px rgb(34 56 84 / 4%);
     display: flex;
     flex-wrap: wrap;
     gap: 1rem;
     justify-content: space-between;
     margin-bottom: 1.35rem;
+    padding: 1.15rem 1.35rem;
 }
 
 .clinical-eyebrow {
@@ -227,5 +235,98 @@ body {
 
     .clinical-panel .card-header {
         padding: 0.9rem 1rem;
+    }
+}
+
+.kpi-tile {
+    background: var(--hospital-surface);
+    border: 1px solid var(--hospital-border);
+    border-left-width: 3px;
+    border-radius: 0.85rem;
+    box-shadow: 0 4px 14px rgb(34 56 84 / 4%);
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.95rem 1.1rem;
+}
+
+.kpi-tile-icon {
+    align-items: center;
+    border-radius: 0.65rem;
+    display: inline-flex;
+    flex: 0 0 auto;
+    font-size: 1.05rem;
+    height: 40px;
+    justify-content: center;
+    width: 40px;
+}
+
+.kpi-tile-blue { border-left-color: #2878d0; }
+.kpi-tile-blue .kpi-tile-icon { background: #eaf3ff; color: #2878d0; }
+.kpi-tile-teal { border-left-color: #168b89; }
+.kpi-tile-teal .kpi-tile-icon { background: #e6f6f5; color: #168b89; }
+.kpi-tile-amber { border-left-color: #cc851d; }
+.kpi-tile-amber .kpi-tile-icon { background: #fff4e3; color: #cc851d; }
+.kpi-tile-green { border-left-color: #159a83; }
+.kpi-tile-green .kpi-tile-icon { background: #e8f7f1; color: #159a83; }
+
+.kpi-tile-label {
+    color: var(--hospital-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.kpi-tile-value {
+    color: var(--hospital-ink);
+    font-size: 1.45rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+}
+
+.avatar-initials {
+    align-items: center;
+    background: linear-gradient(135deg, #e5f3f7, #e7f6f1);
+    border-radius: 999px;
+    color: #176b87;
+    display: inline-flex;
+    flex: 0 0 auto;
+    font-size: 0.78rem;
+    font-weight: 700;
+    height: 34px;
+    justify-content: center;
+    width: 34px;
+}
+
+.print-only {
+    display: none;
+}
+
+@media print {
+    body {
+        background: #fff !important;
+    }
+
+    .app-sidebar,
+    .app-topbar,
+    .sidebar-backdrop,
+    .no-print,
+    .btn,
+    .card-footer {
+        display: none !important;
+    }
+
+    .print-only {
+        display: block !important;
+    }
+
+    main.p-4 {
+        padding: 0 !important;
+    }
+
+    .card {
+        border: 1px solid #d7e0e8 !important;
+        box-shadow: none !important;
+        break-inside: avoid;
     }
 }

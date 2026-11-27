@@ -9,6 +9,7 @@ use App\Http\Controllers\FamilyCardController;
 use App\Http\Controllers\HospitalSettingsController;
 use App\Http\Controllers\HospitalSetupController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\LabOrderController;
 use App\Http\Controllers\MedicalRecordController;
 use App\Http\Controllers\NursingController;
 use App\Http\Controllers\PatientController;
@@ -97,8 +98,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // ACL: viewing a patient chart (Doctor / Receptionist / Admin)
     Route::middleware(['permission:patients.view'])->group(function () {
-        // Explicit URI registered before {patient} so it never binds.
+        // Explicit URIs registered before {patient} so they never bind.
         Route::get('/patients', [PatientController::class, 'index'])->name('patients.index');
+        Route::get('/patients/search', [PatientController::class, 'search'])->name('patients.search');
         Route::get('/patients/{patient}', [PatientController::class, 'show'])->name('patients.show');
     });
 
@@ -148,6 +150,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('permission:nursing.manage')
         ->name('nursing.vitals.store');
 
+    Route::get('/lab', [LabOrderController::class, 'index'])
+        ->middleware('permission:lab.view')
+        ->name('lab.index');
+
+    Route::middleware('permission:lab.manage')->prefix('lab')->name('lab.')->group(function () {
+        Route::post('/', [LabOrderController::class, 'store'])->name('store');
+        Route::patch('/{labOrder}', [LabOrderController::class, 'update'])->name('update');
+    });
+
     Route::get('/pharmacy', [PharmacyController::class, 'index'])
         ->middleware('permission:pharmacy.view')
         ->name('pharmacy.index');
@@ -156,6 +167,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/medicines', [PharmacyController::class, 'storeMedicine'])->name('medicines.store');
         Route::patch('/medicines/{medicine}', [PharmacyController::class, 'updateMedicine'])->name('medicines.update');
         Route::patch('/medicines/{medicine}/price', [PharmacyController::class, 'updateMedicinePrice'])->name('medicines.price');
+        Route::patch('/medicines/{medicine}/deactivate', [PharmacyController::class, 'deactivateMedicine'])->name('medicines.deactivate');
         Route::post('/medicines/{medicine}/stock', [PharmacyController::class, 'receiveStock'])->name('stock.store');
         Route::post('/prescriptions/{record}/dispense', [PharmacyController::class, 'dispense'])->name('dispense');
     });

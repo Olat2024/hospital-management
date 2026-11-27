@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PatientSearchSelect from '@/Components/PatientSearchSelect.vue';
 
 const props = defineProps({
     patients: Array,
@@ -58,14 +59,14 @@ const submit = () => form.transform((data) => ({
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label for="patient" class="form-label">Patient <span class="text-danger">*</span></label>
-                            <select id="patient" v-model="form.patient_id" class="form-select" :class="{ 'is-invalid': form.errors.patient_id }">
-                                <option value="" disabled>Select a patient</option>
-                                <option v-for="patient in patients" :key="patient.id" :value="patient.id">
-                                    {{ patient.last_name }}, {{ patient.first_name }} · {{ patient.mrn }}
-                                </option>
-                            </select>
-                            <div class="invalid-feedback">{{ form.errors.patient_id }}</div>
-                            <div v-if="patients.length === 0" class="form-text text-danger">Register a patient before creating an invoice.</div>
+                            <PatientSearchSelect
+                                id="patient"
+                                v-model="form.patient_id"
+                                :patients="patients"
+                                placeholder="Select a patient"
+                                empty-text="Register a patient before creating an invoice."
+                                :error="form.errors.patient_id"
+                            />
                         </div>
                         <div class="col-md-3">
                             <label for="issued-at" class="form-label">Issue date <span class="text-danger">*</span></label>

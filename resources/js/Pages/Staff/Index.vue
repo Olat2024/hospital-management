@@ -2,6 +2,7 @@
 import { Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Pagination from '@/Components/Pagination.vue';
 import { confirmAction } from '@/Composables/useSweetAlert';
 
 const props = defineProps({
@@ -15,6 +16,13 @@ const actionError = ref('');
 const applySearch = () => router.get(route('staff.index'), {
     search: search.value || undefined,
 }, { preserveState: true, replace: true });
+
+const initials = (name) => String(name || '?')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('');
 
 const removeStaff = async (member) => {
     const confirmed = await confirmAction({
@@ -78,7 +86,12 @@ const removeStaff = async (member) => {
                     </thead>
                     <tbody>
                         <tr v-for="member in staff.data" :key="member.id">
-                            <td class="fw-semibold">{{ member.name }}</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="avatar-initials">{{ initials(member.name) }}</span>
+                                    <span class="fw-semibold">{{ member.name }}</span>
+                                </div>
+                            </td>
                             <td>{{ member.email }}</td>
                             <td>
                                 <span v-for="role in member.roles" :key="role.id" class="badge bg-light text-dark border me-1">
@@ -117,20 +130,8 @@ const removeStaff = async (member) => {
                     </tbody>
                 </table>
             </div>
-            <div v-if="staff.last_page > 1" class="card-footer bg-white d-flex justify-content-between align-items-center">
-                <span class="small text-muted">Showing {{ staff.from }}–{{ staff.to }} of {{ staff.total }}</span>
-                <div class="d-flex gap-2">
-                    <Link
-                        v-if="staff.prev_page_url"
-                        :href="staff.prev_page_url"
-                        class="btn btn-sm btn-outline-secondary"
-                    >Previous</Link>
-                    <Link
-                        v-if="staff.next_page_url"
-                        :href="staff.next_page_url"
-                        class="btn btn-sm btn-outline-secondary"
-                    >Next</Link>
-                </div>
+            <div v-if="staff.last_page > 1" class="card-footer bg-white">
+                <Pagination :paginator="staff" aria-label="Staff pagination" show-summary />
             </div>
         </div>
     </AppLayout>

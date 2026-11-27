@@ -340,6 +340,41 @@ class PharmacyWorkflowTest extends TestCase
         $this->assertDatabaseCount('pharmacy_dispensations', 0);
     }
 
+    public function test_pharmacy_pagination_honors_forwarded_https_headers_and_exposes_all_dispensable_medicines(): void
+    {
+        $hospitalId = $this->patient->hospital_id;
+
+        foreach (range(1, 12) as $index) {
+            Medicine::create([
+                'hospital_id' => $hospitalId,
+                'name' => sprintf('Medicine %02d', $index),
+                'unit_price' => '10.00',
+                'stock_quantity' => 5,
+                'reorder_level' => 1,
+                'is_active' => true,
+            ]);
+        }
+
+        foreach (range(1, 12) as $index) {
+            MedicalRecord::create([
+                'patient_id' => $this->patient->id,
+                'doctor_id' => $this->prescription->doctor_id,
+                'diagnosis' => "Diagnosis {$index}",
+                'prescription' => "Prescription {$index}",
+            ]);
+        }
+
+        $this->actingAs($this->pharmacist)
+            ->withServerVariables(['HTTP_X_FORWARDED_PROTO' => 'https'])
+            ->get('/pharmacy')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('medicines.data', 10)
+                ->has('dispensableMedicines', 12)
+                ->where('prescriptions.next_page_url', fn (string $url) => str_starts_with($url, 'https://'))
+                ->where('medicines.next_page_url', fn (string $url) => str_starts_with($url, 'https://')));
+    }
+
     private function medicine(int $hospitalId, int $stock): Medicine
     {
         return Medicine::create([

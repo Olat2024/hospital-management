@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\MedicalRecord;
 use App\Models\Medicine;
 use App\Models\PharmacyDispensation;
+use App\Models\PharmacyStockMovement;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,12 +22,14 @@ class PharmacyController extends Controller
     {
         $hospital = Hospital::default();
         $search = trim((string) $request->query('search', ''));
+        $medicineSearch = trim((string) $request->query('medicine_search', $search));
+        $prescriptionSearch = trim((string) $request->query('prescription_search', $search));
 
         $medicines = Medicine::query()
             ->where('hospital_id', $hospital->id)
             ->where('is_active', true)
-            ->when($search !== '', fn ($query) => $query->where(function ($query) use ($search) {
-                $like = '%'.$search.'%';
+            ->when($medicineSearch !== '', fn ($query) => $query->where(function ($query) use ($medicineSearch) {
+                $like = '%'.$medicineSearch.'%';
                 $query->where('name', 'like', $like)
                     ->orWhere('generic_name', 'like', $like)
                     ->orWhere('strength', 'like', $like);
@@ -34,6 +37,13 @@ class PharmacyController extends Controller
             ->orderBy('name')
             ->paginate(10, ['*'], 'medicines_page')
             ->withQueryString();
+
+        $dispensableMedicines = Medicine::query()
+            ->where('hospital_id', $hospital->id)
+            ->where('is_active', true)
+            ->where('stock_quantity', '>', 0)
+            ->orderBy('name')
+            ->get(['id', 'name', 'generic_name', 'strength', 'dosage_form', 'unit_price', 'stock_quantity']);
 
         $prescriptions = MedicalRecord::query()
             ->whereNotNull('prescription')
@@ -46,28 +56,50 @@ class PharmacyController extends Controller
                 'dispensations.items.medicine:id,name,strength,dosage_form',
                 'dispensations.dispensedBy:id,name',
             ])
-            ->when($search !== '', fn ($query) => $query->whereHas('patient', fn ($patient) => $patient
-                ->where('first_name', 'like', '%'.$search.'%')
-                ->orWhere('last_name', 'like', '%'.$search.'%')
-                ->orWhere('mrn', 'like', '%'.$search.'%')))
+            ->when($prescriptionSearch !== '', fn ($query) => $query->whereHas('patient', fn ($patient) => $patient
+                ->where(fn ($sub) => $sub
+                    ->where('first_name', 'like', '%'.$prescriptionSearch.'%')
+                    ->orWhere('last_name', 'like', '%'.$prescriptionSearch.'%')
+                    ->orWhere('mrn', 'like', '%'.$prescriptionSearch.'%'))))
             ->orderByDesc('created_at')
             ->paginate(10, ['*'], 'prescriptions_page')
             ->withQueryString();
 
+        $medicineSummary = Medicine::query()
+            ->where('hospital_id', $hospital->id)
+            ->where('is_active', true)
+            ->selectRaw('
+                COUNT(*) as medicine_count,
+                COALESCE(SUM(stock_quantity), 0) as units_in_stock,
+                SUM(CASE WHEN stock_quantity <= reorder_level THEN 1 ELSE 0 END) as low_stock_count
+            ')
+            ->first();
+
+        $stockMovements = PharmacyStockMovement::query()
+            ->whereHas('medicine', fn ($query) => $query->where('hospital_id', $hospital->id))
+            ->with([
+                'medicine:id,name,strength,dosage_form',
+                'recordedBy:id,name',
+            ])
+            ->orderByDesc('recorded_at')
+            ->limit(25)
+            ->get();
+
         return Inertia::render('Pharmacy/Index', [
             'medicines' => $medicines,
+            'dispensableMedicines' => $dispensableMedicines,
             'prescriptions' => $prescriptions,
+            'stockMovements' => $stockMovements,
             'currency' => $hospital->currency ?: 'USD',
-            'filters' => ['search' => $search],
+            'filters' => [
+                'search' => $search,
+                'medicine_search' => $medicineSearch,
+                'prescription_search' => $prescriptionSearch,
+            ],
             'summary' => [
-                'medicineCount' => Medicine::where('hospital_id', $hospital->id)->where('is_active', true)->count(),
-                'unitsInStock' => (int) Medicine::where('hospital_id', $hospital->id)
-                    ->where('is_active', true)
-                    ->sum('stock_quantity'),
-                'lowStockCount' => Medicine::where('hospital_id', $hospital->id)
-                    ->where('is_active', true)
-                    ->whereColumn('stock_quantity', '<=', 'reorder_level')
-                    ->count(),
+                'medicineCount' => (int) ($medicineSummary->medicine_count ?? 0),
+                'unitsInStock' => (int) ($medicineSummary->units_in_stock ?? 0),
+                'lowStockCount' => (int) ($medicineSummary->low_stock_count ?? 0),
                 'prescriptionCount' => MedicalRecord::query()
                     ->whereNotNull('prescription')
                     ->where('prescription', '!=', '')
@@ -153,6 +185,19 @@ class PharmacyController extends Controller
             ->update($validated);
 
         return back()->with('success', 'Medicine details updated.');
+    }
+
+    public function deactivateMedicine(int $medicine): RedirectResponse
+    {
+        $hospital = Hospital::default();
+
+        Medicine::query()
+            ->where('hospital_id', $hospital->id)
+            ->where('is_active', true)
+            ->findOrFail($medicine)
+            ->update(['is_active' => false]);
+
+        return back()->with('success', 'Medicine removed from active inventory.');
     }
 
     public function receiveStock(Request $request, int $medicine): RedirectResponse

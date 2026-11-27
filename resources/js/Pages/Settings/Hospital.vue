@@ -202,7 +202,7 @@ const submit = () => {
                                         ref="fileInput"
                                         type="file"
                                         class="d-none"
-                                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                                        accept="image/png,image/jpeg,image/webp"
                                         @change="form.logo = $event.target.files[0] || null"
                                     >
                                     <div class="d-grid gap-2 mt-3">
@@ -244,7 +244,7 @@ const submit = () => {
                                         ref="faviconInput"
                                         type="file"
                                         class="d-none"
-                                        accept="image/png,image/x-icon,image/svg+xml"
+                                        accept="image/png,image/x-icon"
                                         @change="form.favicon = $event.target.files[0] || null"
                                     >
                                     <div class="d-grid gap-2 mt-3">

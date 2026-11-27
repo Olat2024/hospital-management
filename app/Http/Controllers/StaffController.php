@@ -37,10 +37,10 @@ class StaffController extends Controller
         return Inertia::render('Staff/Index', [
             'staff' => $users->through(fn (User $user) => [
                 ...$user->toArray(),
-                'can_manage' => ! $user->hasAnyRole(['Admin', 'Doctor'])
+                'can_manage' => ! $user->hasAnyRole(['Admin', 'super-admin', 'Doctor'])
                     && ! $user->doctor_profile_exists
                     && $user->id !== $request->user()->id,
-                'can_delete' => ! $user->hasAnyRole(['Admin', 'Doctor'])
+                'can_delete' => ! $user->hasAnyRole(['Admin', 'super-admin', 'Doctor'])
                     && ! $user->doctor_profile_exists
                     && $user->id !== $request->user()->id
                     && ! $user->payments_recorded_exists
@@ -66,7 +66,7 @@ class StaffController extends Controller
                 'integer',
                 Rule::exists('roles', 'id')
                     ->where('guard_name', 'web')
-                    ->whereNotIn('name', ['Admin', 'Doctor']),
+                    ->whereNotIn('name', ['Admin', 'super-admin', 'Doctor']),
             ],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
@@ -111,7 +111,7 @@ class StaffController extends Controller
                 'integer',
                 Rule::exists('roles', 'id')
                     ->where('guard_name', 'web')
-                    ->whereNotIn('name', ['Admin', 'Doctor']),
+                    ->whereNotIn('name', ['Admin', 'super-admin', 'Doctor']),
             ],
             'is_active' => ['required', 'boolean'],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
@@ -170,7 +170,7 @@ class StaffController extends Controller
 
     private function isManageable(User $staff): bool
     {
-        return ! $staff->hasAnyRole(['Admin', 'Doctor'])
+        return ! $staff->hasAnyRole(['Admin', 'super-admin', 'Doctor'])
             && ! $staff->doctorProfile()->exists();
     }
 
@@ -178,7 +178,7 @@ class StaffController extends Controller
     {
         return Role::query()
             ->where('guard_name', 'web')
-            ->whereNotIn('name', ['Admin', 'Doctor'])
+            ->whereNotIn('name', ['Admin', 'super-admin', 'Doctor'])
             ->orderBy('name')
             ->get(['id', 'name']);
     }

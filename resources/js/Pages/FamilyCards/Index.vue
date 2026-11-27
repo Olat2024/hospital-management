@@ -1,6 +1,7 @@
 <script setup>
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Pagination from '@/Components/Pagination.vue';
 
 defineProps({
     cards: Object,
@@ -10,15 +11,17 @@ defineProps({
 <template>
     <AppLayout>
         <div class="clinical-page">
-            <header class="clinical-page-heading">
-                <div>
-                    <div class="clinical-eyebrow">Patient directory</div>
-                    <h1 class="clinical-page-title">Family cards</h1>
-                    <p class="clinical-page-subtitle">Family cards and the patient members linked to each one.</p>
+            <header class="app-page-header">
+                <div class="app-page-header-content">
+                    <div class="app-page-eyebrow">Patient directory</div>
+                    <h1 class="app-page-title">Family cards</h1>
+                    <p class="app-page-description">Household cards and the patient members linked to each one.</p>
                 </div>
-                <Link :href="route('family-cards.create')" class="btn btn-primary">
-                    <i class="bi bi-plus-lg me-1"></i> New family card
-                </Link>
+                <div class="app-page-header-actions">
+                    <Link :href="route('family-cards.create')" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-1"></i> New family card
+                    </Link>
+                </div>
             </header>
 
             <section class="card clinical-panel">
@@ -74,14 +77,8 @@ defineProps({
                         </tbody>
                     </table>
                 </div>
-                <div v-if="cards.last_page > 1" class="card-footer bg-white d-flex justify-content-center">
-                    <nav aria-label="Family card pagination">
-                        <ul class="pagination pagination-sm mb-0">
-                            <li v-for="link in cards.links" :key="link.label" class="page-item" :class="{ active: link.active, disabled: !link.url }">
-                                <Link class="page-link" :href="link.url || '#!'" :preserve-scroll="true" v-html="link.label"></Link>
-                            </li>
-                        </ul>
-                    </nav>
+                <div v-if="cards.last_page > 1" class="card-footer bg-white">
+                    <Pagination :paginator="cards" aria-label="Family card pagination" />
                 </div>
             </section>
         </div>

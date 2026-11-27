@@ -112,4 +112,6 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    'allow_registration' => (bool) env('ALLOW_REGISTRATION', env('APP_ENV', 'production') !== 'production'),
+
 ];
